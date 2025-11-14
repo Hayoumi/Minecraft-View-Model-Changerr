@@ -1,0 +1,21 @@
+{
+  "key.category.viewmodel": "ViewModel Customizer",
+  "key.viewmodel.open_menu": "Open ViewModel Menu",
+  
+  "viewmodel.gui.title": "ViewModel Customizer",
+  "viewmodel.gui.size": "Size",
+  "viewmodel.gui.position_x": "Position X",
+  "viewmodel.gui.position_y": "Position Y",
+  "viewmodel.gui.position_z": "Position Z",
+  "viewmodel.gui.rotation_yaw": "Yaw",
+  "viewmodel.gui.rotation_pitch": "Pitch",
+  "viewmodel.gui.rotation_roll": "Roll",
+  "viewmodel.gui.swing_speed": "Swing Speed",
+  
+  "viewmodel.gui.scale_swing": "Scale Swing",
+  "viewmodel.gui.ignore_haste": "Ignore Haste",
+  "viewmodel.gui.no_equip_reset": "No Equip Reset",
+  "viewmodel.gui.no_swing": "No Swing",
+  
+  "viewmodel.gui.reset": "Reset to Default"
+}

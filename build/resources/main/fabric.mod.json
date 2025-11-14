@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "viewmodel",
+  "version": "1.0.0",
+  "name": "ViewModel Customizer",
+  "description": "Customize your viewmodel",
+  "authors": ["You"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "adapter": "kotlin",
+        "value": "com.viewmodel.ViewModelMod"
+      }
+    ]
+  },
+  "mixins": [
+    "viewmodel.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-language-kotlin": ">=1.11.0",
+    "minecraft": "1.21.4"
+  }
+}

@@ -1,0 +1,2 @@
+v1	named	intermediary
+METHOD	com/viewmodel/mixin/HeldItemRendererMixin	(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/item/ItemStack;Lnet/minecraft/item/ModelTransformationMode;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V	renderItem	method_3233
