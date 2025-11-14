@@ -21,6 +21,7 @@ object ViewModelClient : ClientModInitializer {
             )
         )
 
+        // Handle keybinding
         ClientTickEvents.END_CLIENT_TICK.register { client ->
             while (openMenuKey.wasPressed()) {
                 client.setScreen(com.viewmodel.gui.ViewModelScreen())
