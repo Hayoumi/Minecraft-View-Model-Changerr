@@ -11,6 +11,7 @@ class CompactButton(
     width: Int,
     height: Int,
     message: Text,
+    var selected: Boolean = false,
     onPress: PressAction
 ) : ButtonWidget(x, y, width, height, message, onPress, DEFAULT_NARRATION_SUPPLIER) {
 
@@ -18,10 +19,15 @@ class CompactButton(
     private val hover = 0xFFFFFFFF.toInt()
     private val border = 0xFF3A3A3A.toInt()
     private val text = 0xFFE0E0E0.toInt()
+    private val selectedFill = 0xFF2F2F2F.toInt()
 
     override fun renderWidget(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
         val hovered = isHovered
-        val fillColor = if (hovered) hover else base
+        val fillColor = when {
+            hovered -> hover
+            selected -> selectedFill
+            else -> base
+        }
         val textColor = if (hovered) 0xFF000000.toInt() else text
 
         context.fill(x, y, x + width, y + height, fillColor)

@@ -34,10 +34,7 @@ object ViewModelConfigManager {
                 .onFailure { println("[ViewModel] Failed to load config ${file.nameWithoutExtension}: ${it.message}") }
         }
 
-        if (!configs.containsKey(DEFAULT_NAME)) {
-            configs[DEFAULT_NAME] = ViewModelConfig()
-            println("[ViewModel] Default config created")
-        }
+        ensureDefaultExists()
 
         val savedName = activeFile.takeIf { it.exists() }?.readText()?.trim().orEmpty()
         currentName = if (configs.containsKey(savedName)) savedName else DEFAULT_NAME
@@ -48,6 +45,8 @@ object ViewModelConfigManager {
     }
 
     fun getConfigNames(): List<String> = configs.keys.sorted()
+
+    fun isDefault(name: String): Boolean = name == DEFAULT_NAME
 
     fun saveCurrent() {
         configsDir.mkdirs()
@@ -74,7 +73,7 @@ object ViewModelConfigManager {
     }
 
     fun createConfig(rawName: String): Boolean {
-        val name = sanitize(rawName)
+        val name = chooseName(rawName)
         if (configs.containsKey(name)) return false
 
         saveCurrent()
@@ -87,12 +86,13 @@ object ViewModelConfigManager {
     }
 
     fun deleteConfig(name: String): Boolean {
-        if (!configs.containsKey(name) || configs.size <= 1) return false
+        if (!configs.containsKey(name) || configs.size <= 1 || name == DEFAULT_NAME) return false
 
         configs.remove(name)
         File(configsDir, "$name.json").takeIf { it.exists() }?.delete()
 
         if (currentName == name) {
+            ensureDefaultExists()
             currentName = getConfigNames().first()
             ViewModelConfig.current = configs[currentName] ?: ViewModelConfig()
         }
@@ -102,7 +102,9 @@ object ViewModelConfigManager {
     }
 
     fun renameConfig(oldName: String, rawNewName: String): Boolean {
-        val newName = sanitize(rawNewName)
+        if (oldName == DEFAULT_NAME) return false
+
+        val newName = chooseName(rawNewName)
         val config = configs[oldName] ?: return false
         if (configs.containsKey(newName)) return false
 
@@ -118,8 +120,29 @@ object ViewModelConfigManager {
         return true
     }
 
+    private fun ensureDefaultExists() {
+        if (!configs.containsKey(DEFAULT_NAME)) {
+            configs[DEFAULT_NAME] = ViewModelConfig()
+            println("[ViewModel] Default config created")
+        }
+    }
+
+    private fun chooseName(rawName: String): String {
+        val cleaned = sanitize(rawName)
+        if (cleaned.isNotEmpty()) return cleaned
+
+        var index = 1
+        var candidate: String
+        do {
+            candidate = "Config $index"
+            index++
+        } while (configs.containsKey(candidate))
+
+        return candidate
+    }
+
     private fun sanitize(name: String): String {
         val cleaned = name.replace("[\\\\/:*?\"<>|]".toRegex(), "").trim()
-        return cleaned.ifEmpty { DEFAULT_NAME }
+        return cleaned
     }
 }

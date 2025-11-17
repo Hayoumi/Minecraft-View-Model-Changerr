@@ -26,11 +26,13 @@ class ViewModelScreen : Screen(Text.empty()) {
         const val ITEM_H = 28
         const val SPACING = 6
         const val PADDING = 14
-        const val CONFIG_SECTION_H = 64
+        const val DRAWER_WIDTH = 200
+        const val DRAWER_HEIGHT_OFFSET = 36
+        const val LIST_ITEM_H = 20
     }
 
     private lateinit var nameField: TextFieldWidget
-    private var contentStartY = 56
+    private var contentStartY = 80
     private var currentName = ""
     private var allConfigs: List<String> = emptyList()
 
@@ -44,8 +46,10 @@ class ViewModelScreen : Screen(Text.empty()) {
         currentName = ViewModelConfigManager.currentName
         allConfigs = ViewModelConfigManager.getConfigNames()
 
+        val drawerX = 28
+        setupConfigControls(drawerX)
+
         val x = (width - WIDTH) / 2
-        setupConfigControls(x)
         var y = contentStartY
 
         // Size
@@ -163,42 +167,78 @@ class ViewModelScreen : Screen(Text.empty()) {
         return 20
     }
 
-    private fun setupConfigControls(x: Int) {
-        val fieldWidth = WIDTH - PADDING * 2 - 96
-        contentStartY = 52 + CONFIG_SECTION_H + SPACING
+    private fun setupConfigControls(drawerX: Int) {
+        val drawerY = 28
+        val fieldWidth = DRAWER_WIDTH - PADDING * 2
+        contentStartY = 84
 
-        nameField = TextFieldWidget(textRenderer, x + PADDING + 36, 52 + 8, fieldWidth, 16, Text.empty())
+        val nameY = drawerY + 36
+        nameField = TextFieldWidget(textRenderer, drawerX + PADDING, nameY, fieldWidth, 16, Text.empty())
         nameField.text = currentName
         nameField.setEditableColor(TEXT)
 
+        val buttonWidth = (DRAWER_WIDTH - PADDING * 2 - SPACING) / 2
+        val controlsY = nameY + 22
         buttons.add(
-            CompactButton(x + PADDING, 52 + 6, 30, 20, Text.literal("◀")) { cycleConfig(-1) }
+            CompactButton(drawerX + PADDING, controlsY, buttonWidth, 18, Text.literal("New")) { createConfig() }
         )
-        buttons.add(
-            CompactButton(x + PADDING + fieldWidth + 44, 52 + 6, 30, 20, Text.literal("▶")) { cycleConfig(1) }
-        )
+        val rename = CompactButton(
+            drawerX + PADDING + buttonWidth + SPACING,
+            controlsY,
+            buttonWidth,
+            18,
+            Text.literal("Rename")
+        ) { renameConfig() }
+        val delete = CompactButton(
+            drawerX + PADDING,
+            controlsY + 22,
+            DRAWER_WIDTH - PADDING * 2,
+            18,
+            Text.literal("Delete")
+        ) { deleteConfig() }
 
-        buttons.add(
-            CompactButton(x + PADDING, 52 + 32, 80, 18, Text.literal("New")) { createConfig() }
-        )
-        buttons.add(
-            CompactButton(x + PADDING + 88, 52 + 32, 80, 18, Text.literal("Rename")) { renameConfig() }
-        )
-        buttons.add(
-            CompactButton(x + WIDTH - PADDING - 80, 52 + 32, 80, 18, Text.literal("Delete")) { deleteConfig() }
-        )
+        val canModify = !ViewModelConfigManager.isDefault(currentName) && allConfigs.size > 1
+        rename.active = canModify
+        delete.active = canModify
+
+        buttons.add(rename)
+        buttons.add(delete)
+
+        var listY = controlsY + 22 + 26
+        allConfigs.forEach { config ->
+            val entry = CompactButton(
+                drawerX + PADDING,
+                listY,
+                DRAWER_WIDTH - PADDING * 2,
+                LIST_ITEM_H,
+                Text.literal(config),
+                selected = config == currentName
+            ) { selectConfig(config) }
+            listY += LIST_ITEM_H + 4
+            buttons.add(entry)
+        }
     }
 
-    private fun renderConfigSection(context: DrawContext, x: Int, mouseX: Int, mouseY: Int) {
-        val sectionTop = 52
-        context.fill(x + PADDING, sectionTop, x + WIDTH - PADDING, sectionTop + CONFIG_SECTION_H, CARD)
-        drawBorder(context, x + PADDING, sectionTop, WIDTH - PADDING * 2, CONFIG_SECTION_H)
+    private fun renderConfigDrawer(context: DrawContext, drawerX: Int, mouseX: Int, mouseY: Int) {
+        val drawerY = 28
+        val drawerHeight = height - DRAWER_HEIGHT_OFFSET
+        context.fill(drawerX, drawerY, drawerX + DRAWER_WIDTH, drawerY + drawerHeight, CARD)
+        drawBorder(context, drawerX, drawerY, DRAWER_WIDTH, drawerHeight)
 
         context.drawText(
             textRenderer,
             Text.literal("Configs").styled { it.withBold(true) },
-            x + PADDING + 2,
-            sectionTop - 10,
+            drawerX + PADDING,
+            drawerY - 10,
+            TEXT_DIM,
+            false
+        )
+
+        context.drawText(
+            textRenderer,
+            Text.literal("Name"),
+            drawerX + PADDING,
+            48,
             TEXT_DIM,
             false
         )
@@ -206,12 +246,9 @@ class ViewModelScreen : Screen(Text.empty()) {
         nameField.render(context, mouseX, mouseY, 0f)
     }
 
-    private fun cycleConfig(direction: Int) {
-        if (allConfigs.isEmpty()) return
-        val index = allConfigs.indexOf(currentName).takeIf { it >= 0 } ?: 0
-        val next = (index + direction + allConfigs.size) % allConfigs.size
-        if (ViewModelConfigManager.setActive(allConfigs[next])) {
-            currentName = allConfigs[next]
+    private fun selectConfig(name: String) {
+        if (ViewModelConfigManager.setActive(name)) {
+            currentName = ViewModelConfigManager.currentName
             client?.setScreen(ViewModelScreen())
         }
     }
@@ -239,9 +276,12 @@ class ViewModelScreen : Screen(Text.empty()) {
     }
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
+        val drawerX = 28
         val x = (width - WIDTH) / 2
         val panelHeight = height - 56
-        
+
+        renderConfigDrawer(context, drawerX, mouseX, mouseY)
+
         // фон панели
         context.fill(x, 18, x + WIDTH, 18 + panelHeight, PANEL)
         drawBorder(context, x, 18, WIDTH, panelHeight)
@@ -259,8 +299,6 @@ class ViewModelScreen : Screen(Text.empty()) {
         // линия под заголовком
         context.fill(x + 20, 42, x + WIDTH - 20, 43, BORDER)
 
-        renderConfigSection(context, x, mouseX, mouseY)
-
         // секции: Y синхронизирован со слайдерами (первый слайдер стартует после конфигов)
         var sectionY = contentStartY
         sectionY = renderSectionTitle(context, x, sectionY, "Transform")
@@ -273,10 +311,10 @@ class ViewModelScreen : Screen(Text.empty()) {
         sectionY += (ITEM_H + SPACING) * 3
         
         renderSectionTitle(context, x, sectionY, "Animation")
-        
+
         // сами виджеты
         super.render(context, mouseX, mouseY, delta)
-        
+
         // нижняя кнопка Reset All
         renderResetButton(context, mouseX, mouseY)
     }
