@@ -16,8 +16,8 @@ object ViewModelMod : ClientModInitializer {
 
     override fun onInitializeClient() {
         LOGGER.info("ViewModel Mod initialized!")
-        
-        ViewModelConfig.load()
+
+        ViewModelConfigManager.load()
         
         openGuiKey = KeyBindingHelper.registerKeyBinding(
             KeyBinding(
