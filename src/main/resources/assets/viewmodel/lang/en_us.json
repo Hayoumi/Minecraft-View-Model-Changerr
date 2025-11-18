@@ -1,8 +1,8 @@
 {
-  "key.category.viewmodel": "ViewModel Customizer",
+  "key.category.viewmodel": "View Model Customizer",
   "key.viewmodel.open_menu": "Open ViewModel Menu",
 
-  "viewmodel.gui.title": "ViewModel Customizer",
+  "viewmodel.gui.title": "View Model Customizer",
   "viewmodel.gui.subtitle": "Fine-tune how held items sit in first-person",
   "viewmodel.gui.size": "Size",
   "viewmodel.gui.position_x": "Position X",

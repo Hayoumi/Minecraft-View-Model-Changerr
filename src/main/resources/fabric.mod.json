@@ -10,10 +10,7 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      {
-        "adapter": "kotlin",
-        "value": "com.viewmodel.ViewModelMod"
-      }
+      "com.viewmodel.ViewModelMod"
     ]
   },
   "mixins": [
