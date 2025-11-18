@@ -53,14 +53,8 @@ object ViewModelConfigManager {
         val activeConfig = ViewModelConfig.current
         configs[currentName] = activeConfig
 
-        val file = File(configsDir, "$currentName.json")
-        runCatching { file.writeText(json.encodeToString(activeConfig)) }
-            .onFailure { println("[ViewModel] Failed to save config $currentName: ${it.message}") }
-
-        runCatching {
-            activeFile.parentFile?.mkdirs()
-            activeFile.writeText(currentName)
-        }.onFailure { println("[ViewModel] Failed to save active config: ${it.message}") }
+        persist(currentName, activeConfig)
+        persistActiveName()
     }
 
     fun setActive(name: String): Boolean {
@@ -76,12 +70,10 @@ object ViewModelConfigManager {
         val name = chooseName(rawName)
         if (configs.containsKey(name)) return false
 
-        saveCurrent()
         val config = ViewModelConfig()
         configs[name] = config
-        currentName = name
-        ViewModelConfig.current = config
-        saveCurrent()
+        persist(name, config)
+        persistActiveName()
         return true
     }
 
@@ -106,7 +98,12 @@ object ViewModelConfigManager {
 
         val newName = chooseName(rawNewName)
         val config = configs[oldName] ?: return false
-        if (configs.containsKey(newName)) return false
+        if (configs.containsKey(newName) && newName != oldName) return false
+
+        if (newName == oldName) {
+            nameUnchangedPersist(oldName, config)
+            return true
+        }
 
         configs.remove(oldName)
         File(configsDir, "$oldName.json").takeIf { it.exists() }?.renameTo(File(configsDir, "$newName.json"))
@@ -116,7 +113,8 @@ object ViewModelConfigManager {
             currentName = newName
         }
 
-        saveCurrent()
+        persist(newName, config)
+        persistActiveName()
         return true
     }
 
@@ -125,6 +123,26 @@ object ViewModelConfigManager {
             configs[DEFAULT_NAME] = ViewModelConfig()
             println("[ViewModel] Default config created")
         }
+    }
+
+    private fun nameUnchangedPersist(name: String, config: ViewModelConfig) {
+        persist(name, config)
+        if (currentName == name) {
+            persistActiveName()
+        }
+    }
+
+    private fun persist(name: String, config: ViewModelConfig) {
+        val file = File(configsDir, "$name.json")
+        runCatching { file.writeText(json.encodeToString(config)) }
+            .onFailure { println("[ViewModel] Failed to save config $name: ${it.message}") }
+    }
+
+    private fun persistActiveName() {
+        runCatching {
+            activeFile.parentFile?.mkdirs()
+            activeFile.writeText(currentName)
+        }.onFailure { println("[ViewModel] Failed to save active config: ${it.message}") }
     }
 
     private fun chooseName(rawName: String): String {
