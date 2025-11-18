@@ -36,12 +36,17 @@ public final class ViewModelProfileManager {
         return profiles.get(activeIndex);
     }
 
+    public List<ViewModelProfile> snapshot() {
+        return new ArrayList<>(profiles);
+    }
+
     public void select(int index) {
         if (index < 0 || index >= profiles.size()) {
             return;
         }
         this.activeIndex = index;
         profiles.get(index).apply(ViewModelConfig.current);
+        ViewModelConfig.save();
     }
 
     public ViewModelProfile create(String requestedName) {
@@ -50,6 +55,7 @@ public final class ViewModelProfileManager {
         ViewModelProfile snapshot = ViewModelProfile.fromConfig(uniqueName, ViewModelConfig.current);
         profiles.add(snapshot);
         activeIndex = profiles.size() - 1;
+        ViewModelConfig.save();
         return snapshot;
     }
 
@@ -63,6 +69,7 @@ public final class ViewModelProfileManager {
         }
         ViewModelProfile renamed = profiles.get(activeIndex).withName(sanitized);
         profiles.set(activeIndex, renamed);
+        ViewModelConfig.save();
         return true;
     }
 
@@ -74,6 +81,7 @@ public final class ViewModelProfileManager {
         profiles.remove(activeIndex);
         activeIndex = Math.max(0, activeIndex - 1);
         profiles.get(activeIndex).apply(ViewModelConfig.current);
+        ViewModelConfig.save();
         return true;
     }
 
@@ -83,6 +91,37 @@ public final class ViewModelProfileManager {
         }
         ViewModelProfile active = profiles.get(activeIndex);
         profiles.set(activeIndex, ViewModelProfile.fromConfig(active.name(), ViewModelConfig.current));
+        ViewModelConfig.save();
+    }
+
+    void loadProfiles(List<ViewModelProfile> loadedProfiles, String activeName) {
+        this.profiles.clear();
+        List<ViewModelProfile> source = (loadedProfiles == null || loadedProfiles.isEmpty())
+            ? defaultProfiles()
+            : new ArrayList<>(loadedProfiles);
+        this.profiles.addAll(source);
+        if (this.profiles.isEmpty()) {
+            this.profiles.add(ViewModelProfile.defaults("Default"));
+        }
+        this.activeIndex = resolveActiveIndex(activeName);
+        this.profiles.get(this.activeIndex).apply(ViewModelConfig.current);
+    }
+
+    private int resolveActiveIndex(String activeName) {
+        if (activeName != null && !activeName.isBlank()) {
+            for (int i = 0; i < profiles.size(); i++) {
+                if (profiles.get(i).name().equalsIgnoreCase(activeName)) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static List<ViewModelProfile> defaultProfiles() {
+        List<ViewModelProfile> defaults = new ArrayList<>();
+        defaults.add(ViewModelProfile.defaults("Default"));
+        return defaults;
     }
 
     private static String sanitizeName(String value) {

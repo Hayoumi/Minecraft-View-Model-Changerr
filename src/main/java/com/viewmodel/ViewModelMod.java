@@ -8,15 +8,20 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Registers the keybinding that opens the compact config screen.
  */
 public final class ViewModelMod implements ClientModInitializer {
+    public static final Logger LOGGER = LoggerFactory.getLogger("viewmodel");
     private static KeyBinding openScreenKey;
 
     @Override
     public void onInitializeClient() {
+        ViewModelConfig.load();
+
         openScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.viewmodel.open_menu",
             InputUtil.Type.KEYSYM,

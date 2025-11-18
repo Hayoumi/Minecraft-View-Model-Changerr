@@ -37,10 +37,13 @@ public class ViewmodelConfigScreen extends Screen {
     private static final int LABEL_COLUMN_WIDTH = 34;
     private static final int VALUE_COLUMN_WIDTH = 60;
     private static final int ROW_SPACING = 28;
-    private static final int RESET_BUTTON_SIZE = 16;
+    private static final int RESET_BUTTON_SIZE = 20;
     private static final int COLUMN_GAP = 6;
     private static final int SECTION_HEADER_GAP = 16;
     private static final int SECTION_LABEL_OFFSET = 12;
+    private static final int SECTION_LABEL_TO_SLIDER_GAP = 10;
+    private static final int RIGHT_PANEL_CONTENT_OFFSET = 28;
+    private static final int PROFILES_HEADER_GAP = 22;
     private static final int STATUS_FOOTER_SPACE = 20;
     private static final DecimalFormat VALUE_FORMAT = new DecimalFormat("+0.00;-0.00");
     private static final int COLOR_BACKDROP = 0xD0101010;
@@ -48,6 +51,7 @@ public class ViewmodelConfigScreen extends Screen {
     private static final int COLOR_PANEL_BORDER = 0xFF2A2A2A;
     private static final int COLOR_TEXT_PRIMARY = 0xFFF0F0F0;
     private static final int COLOR_TEXT_MUTED = 0xFF9FA1A5;
+    private static final int COLOR_TEXT_DARK = 0xFF050505;
     private static final int COLOR_ACCENT = 0xFF5CC8C1;
     private static final int COLOR_ACCENT_HOVER = 0xFF6FD6CF;
     private static final int COLOR_TRACK_BG = 0xFF1E1E1E;
@@ -70,7 +74,7 @@ public class ViewmodelConfigScreen extends Screen {
     private int rightPanelX;
     private int rightPanelY;
     private int leftPanelHeight = 210;
-    private int rightPanelHeight = 400;
+    private int rightPanelHeight = 440;
 
     public ViewmodelConfigScreen(Screen parent) {
         super(Text.empty());
@@ -96,17 +100,17 @@ public class ViewmodelConfigScreen extends Screen {
     private void buildSidebar() {
         int dropdownWidth = LEFT_PANEL_WIDTH - PANEL_PADDING * 2;
         List<String> names = profileManager.profileNames();
-        this.profileDropdown = this.addDrawableChild(new ProfileDropdownWidget(
+        ProfileDropdownWidget dropdown = new ProfileDropdownWidget(
             leftPanelX + PANEL_PADDING,
-            leftPanelY + PANEL_PADDING + 14,
+            leftPanelY + PANEL_PADDING + PROFILES_HEADER_GAP,
             dropdownWidth,
             18,
             names,
             profileManager.getActiveIndex(),
             this::handleProfileSelection
-        ));
+        );
 
-        int buttonsY = profileDropdown.getY() + profileDropdown.getHeight() + 10;
+        int buttonsY = dropdown.getY() + dropdown.getHeight() + 10;
         int buttonWidth = (dropdownWidth - 8) / 3;
 
         this.addDrawableChild(new AccentButton(
@@ -143,10 +147,12 @@ public class ViewmodelConfigScreen extends Screen {
             140,
             buttonsBottom - leftPanelY + PANEL_PADDING + STATUS_FOOTER_SPACE
         );
+
+        this.profileDropdown = this.addDrawableChild(dropdown);
     }
 
     private void buildSliders() {
-        int cursorY = rightPanelY + PANEL_PADDING + 16;
+        int cursorY = rightPanelY + PANEL_PADDING + RIGHT_PANEL_CONTENT_OFFSET;
 
         cursorY = addSliderRow(
             "SIZE",
@@ -161,12 +167,13 @@ public class ViewmodelConfigScreen extends Screen {
 
         cursorY += SECTION_HEADER_GAP;
         sectionLabels.add(new SectionLabel("POSITION", rightPanelX + PANEL_PADDING, cursorY - SECTION_LABEL_OFFSET));
+        cursorY += SECTION_LABEL_TO_SLIDER_GAP;
 
         cursorY = addSliderRow(
             "X",
-            -3.0,
-            3.0,
-            0.05,
+            -50.0,
+            50.0,
+            0.50,
             () -> ViewModelConfig.current.getPositionX(),
             ViewModelProfile.baseline().positionX(),
             value -> setAndSync(ViewModelConfig.current::setPositionX, value),
@@ -175,9 +182,9 @@ public class ViewmodelConfigScreen extends Screen {
 
         cursorY = addSliderRow(
             "Y",
-            -3.0,
-            3.0,
-            0.05,
+            -50.0,
+            50.0,
+            0.50,
             () -> ViewModelConfig.current.getPositionY(),
             ViewModelProfile.baseline().positionY(),
             value -> setAndSync(ViewModelConfig.current::setPositionY, value),
@@ -186,9 +193,9 @@ public class ViewmodelConfigScreen extends Screen {
 
         cursorY = addSliderRow(
             "Z",
-            -3.0,
-            3.0,
-            0.05,
+            -50.0,
+            50.0,
+            0.50,
             () -> ViewModelConfig.current.getPositionZ(),
             ViewModelProfile.baseline().positionZ(),
             value -> setAndSync(ViewModelConfig.current::setPositionZ, value),
@@ -197,12 +204,13 @@ public class ViewmodelConfigScreen extends Screen {
 
         cursorY += SECTION_HEADER_GAP;
         sectionLabels.add(new SectionLabel("ROTATION", rightPanelX + PANEL_PADDING, cursorY - SECTION_LABEL_OFFSET));
+        cursorY += SECTION_LABEL_TO_SLIDER_GAP;
 
         cursorY = addSliderRow(
             "Yaw",
-            -45.0,
-            45.0,
-            0.5,
+            -180.0,
+            180.0,
+            1.0,
             () -> ViewModelConfig.current.getRotationYaw(),
             ViewModelProfile.baseline().rotationYaw(),
             value -> setAndSync(ViewModelConfig.current::setRotationYaw, value),
@@ -211,9 +219,9 @@ public class ViewmodelConfigScreen extends Screen {
 
         cursorY = addSliderRow(
             "Pitch",
-            -45.0,
-            45.0,
-            0.5,
+            -180.0,
+            180.0,
+            1.0,
             () -> ViewModelConfig.current.getRotationPitch(),
             ViewModelProfile.baseline().rotationPitch(),
             value -> setAndSync(ViewModelConfig.current::setRotationPitch, value),
@@ -222,16 +230,16 @@ public class ViewmodelConfigScreen extends Screen {
 
         cursorY = addSliderRow(
             "Roll",
-            -45.0,
-            45.0,
-            0.5,
+            -180.0,
+            180.0,
+            1.0,
             () -> ViewModelConfig.current.getRotationRoll(),
             ViewModelProfile.baseline().rotationRoll(),
             value -> setAndSync(ViewModelConfig.current::setRotationRoll, value),
             cursorY
         );
 
-        cursorY += 10;
+        cursorY += 12;
         this.noSwingToggle = this.addDrawableChild(new ToggleSwitchWidget(
             rightPanelX + PANEL_PADDING,
             cursorY,
@@ -242,7 +250,7 @@ public class ViewmodelConfigScreen extends Screen {
             value -> setAndSync(ViewModelConfig.current::setNoSwing, value)
         ));
 
-        cursorY += 26;
+        cursorY += 28;
         this.scaleSwingToggle = this.addDrawableChild(new ToggleSwitchWidget(
             rightPanelX + PANEL_PADDING,
             cursorY,
@@ -253,14 +261,18 @@ public class ViewmodelConfigScreen extends Screen {
             value -> setAndSync(ViewModelConfig.current::setScaleSwing, value)
         ));
 
-        cursorY += 30;
-        this.addDrawableChild(new AccentButton(
+        cursorY += 20;
+        int resetButtonY = Math.max(cursorY, rightPanelY + rightPanelHeight - PANEL_PADDING - 24);
+        this.addDrawableChild(new MinimalButton(
             rightPanelX + PANEL_PADDING,
-            cursorY,
+            resetButtonY,
             RIGHT_PANEL_WIDTH - PANEL_PADDING * 2,
             20,
             Text.literal("Reset All"),
-            this::handleResetAll
+            this::handleResetAll,
+            0xFF181818,
+            0xFF212121,
+            COLOR_ACCENT
         ));
     }
 
@@ -406,8 +418,14 @@ public class ViewmodelConfigScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (profileDropdown != null && profileDropdown.isOpen() && !profileDropdown.isMouseOver(mouseX, mouseY)) {
-            profileDropdown.close();
+        if (profileDropdown != null && profileDropdown.isOpen()) {
+            if (profileDropdown.isMouseOver(mouseX, mouseY)) {
+                if (profileDropdown.mouseClicked(mouseX, mouseY, button)) {
+                    return true;
+                }
+            } else {
+                profileDropdown.close();
+            }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -564,8 +582,21 @@ public class ViewmodelConfigScreen extends Screen {
             context.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), color);
             context.drawBorder(getX(), getY(), getWidth(), getHeight(), COLOR_ACCENT);
             TextRenderer font = MinecraftClient.getInstance().textRenderer;
-            int textX = getX() + (getWidth() - font.getWidth(getMessage())) / 2;
-            context.drawText(font, getMessage(), textX, getY() + 4, COLOR_ACCENT, false);
+            float scale = 1.2f;
+            int textWidth = font.getWidth(getMessage());
+            int textHeight = font.fontHeight;
+            context.getMatrices().push();
+            context.getMatrices().translate(getX() + getWidth() / 2f, getY() + getHeight() / 2f, 0);
+            context.getMatrices().scale(scale, scale, 1.0f);
+            context.drawText(
+                font,
+                getMessage(),
+                (int) (-textWidth / 2f),
+                (int) (-textHeight / 2f),
+                COLOR_ACCENT,
+                false
+            );
+            context.getMatrices().pop();
         }
 
         @Override
@@ -583,12 +614,18 @@ public class ViewmodelConfigScreen extends Screen {
         private final Runnable action;
         private final int baseColor;
         private final int hoverColor;
+        private final int textColor;
 
         MinimalButton(int x, int y, int width, int height, Text text, Runnable action, int baseColor, int hoverColor) {
+            this(x, y, width, height, text, action, baseColor, hoverColor, COLOR_TEXT_PRIMARY);
+        }
+
+        MinimalButton(int x, int y, int width, int height, Text text, Runnable action, int baseColor, int hoverColor, int textColor) {
             super(x, y, width, height, text);
             this.action = action;
             this.baseColor = baseColor;
             this.hoverColor = hoverColor;
+            this.textColor = textColor;
         }
 
         @Override
@@ -598,7 +635,7 @@ public class ViewmodelConfigScreen extends Screen {
             context.drawBorder(getX(), getY(), getWidth(), getHeight(), COLOR_PANEL_BORDER);
             TextRenderer font = MinecraftClient.getInstance().textRenderer;
             int textX = getX() + (getWidth() - font.getWidth(getMessage())) / 2;
-            context.drawText(font, getMessage(), textX, getY() + 5, COLOR_TEXT_PRIMARY, false);
+            context.drawText(font, getMessage(), textX, getY() + 5, textColor, false);
         }
 
         @Override
@@ -657,8 +694,7 @@ public class ViewmodelConfigScreen extends Screen {
             String state = value ? "ON" : "OFF";
             int stateWidth = font.getWidth(state);
             int textX = switchX + (switchWidth - stateWidth) / 2;
-            int textColor = value ? 0xFF0F1F1B : COLOR_TEXT_PRIMARY;
-            context.drawText(font, Text.literal(state), textX, switchY + 4, textColor, false);
+            context.drawText(font, Text.literal(state), textX, switchY + 4, COLOR_TEXT_DARK, false);
         }
 
         @Override
