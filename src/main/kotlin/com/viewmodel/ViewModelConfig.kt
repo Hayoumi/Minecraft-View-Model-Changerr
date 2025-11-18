@@ -1,9 +1,6 @@
 package com.viewmodel
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import java.io.File
 
 @Serializable
 data class ViewModelConfig(
@@ -19,38 +16,7 @@ data class ViewModelConfig(
     // УБРАЛИ noEquipReset - теперь всегда включен
 ) {
     companion object {
-        private val json = Json { 
-            prettyPrint = true
-            ignoreUnknownKeys = true
-        }
-        
-        private val configFile = File("config/viewmodel.json")
-        
         @JvmField
         var current = ViewModelConfig()
-        
-        @JvmStatic
-        fun load() {
-            try {
-                if (configFile.exists()) {
-                    current = json.decodeFromString(configFile.readText())
-                    println("[ViewModel] Config loaded")
-                }
-            } catch (e: Exception) {
-                println("[ViewModel] Failed to load config: ${e.message}")
-                current = ViewModelConfig()
-            }
-        }
-        
-        @JvmStatic
-        fun save() {
-            try {
-                configFile.parentFile.mkdirs()
-                configFile.writeText(json.encodeToString(current))
-                println("[ViewModel] Config saved")
-            } catch (e: Exception) {
-                println("[ViewModel] Failed to save config: ${e.message}")
-            }
-        }
     }
 }
