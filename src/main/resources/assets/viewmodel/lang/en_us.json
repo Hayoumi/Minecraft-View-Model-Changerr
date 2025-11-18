@@ -1,8 +1,9 @@
 {
   "key.category.viewmodel": "ViewModel Customizer",
   "key.viewmodel.open_menu": "Open ViewModel Menu",
-  
+
   "viewmodel.gui.title": "ViewModel Customizer",
+  "viewmodel.gui.subtitle": "Fine-tune how held items sit in first-person",
   "viewmodel.gui.size": "Size",
   "viewmodel.gui.position_x": "Position X",
   "viewmodel.gui.position_y": "Position Y",
@@ -10,12 +11,24 @@
   "viewmodel.gui.rotation_yaw": "Yaw",
   "viewmodel.gui.rotation_pitch": "Pitch",
   "viewmodel.gui.rotation_roll": "Roll",
-  "viewmodel.gui.swing_speed": "Swing Speed",
-  
   "viewmodel.gui.scale_swing": "Scale Swing",
-  "viewmodel.gui.ignore_haste": "Ignore Haste",
-  "viewmodel.gui.no_equip_reset": "No Equip Reset",
   "viewmodel.gui.no_swing": "No Swing",
-  
-  "viewmodel.gui.reset": "Reset to Default"
+
+  "viewmodel.gui.configs": "Profiles",
+  "viewmodel.gui.active_profile": "Active Profile",
+  "viewmodel.gui.config_placeholder": "Choose a profile",
+  "viewmodel.gui.config_input": "Profile name",
+  "viewmodel.gui.create": "Create",
+  "viewmodel.gui.rename": "Rename",
+  "viewmodel.gui.delete": "Delete",
+  "viewmodel.gui.reset": "Reset Profile",
+
+  "viewmodel.gui.status.profile": "Switched to %s",
+  "viewmodel.gui.status.created": "Created %s",
+  "viewmodel.gui.status.create_failed": "Unable to create profile",
+  "viewmodel.gui.status.rename_failed": "Unable to rename profile",
+  "viewmodel.gui.status.renamed": "Renamed to %s",
+  "viewmodel.gui.status.deleted": "Deleted %s",
+  "viewmodel.gui.status.delete_failed": "Unable to delete profile",
+  "viewmodel.gui.status.reset": "Profile reset"
 }

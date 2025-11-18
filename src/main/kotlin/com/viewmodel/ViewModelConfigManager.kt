@@ -69,15 +69,15 @@ object ViewModelConfigManager {
         return true
     }
 
-    fun createConfig(rawName: String): Boolean {
+    fun createConfig(rawName: String): String? {
         val name = chooseName(rawName)
-        if (configs.containsKey(name)) return false
+        if (configs.containsKey(name)) return null
 
         val config = ViewModelConfig()
         configs[name] = config
         persist(name, config)
         persistActiveName()
-        return true
+        return name
     }
 
     fun deleteConfig(name: String): Boolean {
@@ -96,16 +96,16 @@ object ViewModelConfigManager {
         return true
     }
 
-    fun renameConfig(oldName: String, rawNewName: String): Boolean {
-        if (oldName == DEFAULT_NAME) return false
+    fun renameConfig(oldName: String, rawNewName: String): String? {
+        if (oldName == DEFAULT_NAME) return null
 
         val newName = chooseName(rawNewName)
-        val config = configs[oldName] ?: return false
-        if (configs.containsKey(newName) && newName != oldName) return false
+        val config = configs[oldName] ?: return null
+        if (configs.containsKey(newName) && newName != oldName) return null
 
         if (newName == oldName) {
             nameUnchangedPersist(oldName, config)
-            return true
+            return oldName
         }
 
         configs.remove(oldName)
@@ -118,7 +118,7 @@ object ViewModelConfigManager {
 
         persist(newName, config)
         persistActiveName()
-        return true
+        return newName
     }
 
     private fun ensureDefaultExists() {

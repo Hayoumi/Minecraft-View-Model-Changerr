@@ -2,487 +2,561 @@ package com.viewmodel.gui
 
 import com.viewmodel.ViewModelConfig
 import com.viewmodel.ViewModelConfigManager
+import com.viewmodel.gui.components.GuiPrimitives
+import com.viewmodel.gui.components.RoundedTextField
+import com.viewmodel.gui.components.ViewModelDropdown
+import com.viewmodel.gui.components.ViewModelPalette
+import com.viewmodel.gui.components.ViewModelPillButton
+import com.viewmodel.gui.components.ViewModelSlider
+import com.viewmodel.gui.components.ViewModelToggle
 import net.minecraft.client.gui.DrawContext
-import net.minecraft.client.gui.widget.TextFieldWidget
 import net.minecraft.client.gui.screen.Screen
-import net.minecraft.client.gui.widget.TextFieldWidget as ConfigTextFieldWidget
 import net.minecraft.text.Text
+import net.minecraft.util.Util
+import java.util.Locale
 import kotlin.math.max
 
-class ViewModelScreen : Screen(Text.empty()) {
+class ViewModelScreen : Screen(Text.translatable("viewmodel.gui.title")) {
 
-    private data class Bounds(val x: Int, val y: Int, val w: Int, val h: Int) {
-        fun contains(mx: Double, my: Double): Boolean = mx >= x && mx <= x + w && my >= y && my <= y + h
-        fun contains(mx: Int, my: Int): Boolean = contains(mx.toDouble(), my.toDouble())
-    }
+    private data class SliderDefinition(
+        val key: String,
+        val min: Float,
+        val max: Float,
+        val step: Float,
+        val getter: () -> Float,
+        val setter: (Float) -> Unit,
+        val formatter: (Float) -> String
+    )
 
-    private data class SectionHeader(val title: String, val y: Int)
+    private data class ToggleDefinition(
+        val key: String,
+        val getter: () -> Boolean,
+        val setter: (Boolean) -> Unit
+    )
 
-    private val sliders = mutableListOf<CompactSlider>()
-    private val toggles = mutableListOf<CompactToggle>()
-    private val buttons = mutableListOf<CompactButton>()
+    private data class PanelBounds(
+        var x: Int = 0,
+        var y: Int = 0,
+        var width: Int = 0,
+        var height: Int = 0
+    )
 
-    // Палитра
-    private val PANEL = 0xFF10131A.toInt()
-    private val CARD = 0xFF11141C.toInt()
-    private val ACCENT = 0xFF34C759.toInt()
-    private val TEXT = 0xFFF6F7F9.toInt()
-    private val TEXT_DIM = 0xCCB7BDC9.toInt()
-    private val SHADOW = 0x66000000.toInt()
+    private val mainPanel = PanelBounds()
+    private val configPanel = PanelBounds()
 
-    companion object {
-        const val WIDTH = 328
-        const val ITEM_H = 30
-        const val SPACING = 4
-        const val PADDING = 12
-        const val CONFIG_WIDTH = 188
-        const val PANEL_GAP = 16
-        const val LIST_ITEM_H = 20
-        const val HEADER_SPACING = 32
-        const val RADIUS = 18
-        const val SECTION_LABEL_OFFSET = 10
-        const val SECTION_GAP = 14
-    }
+    private val sliderWidgets = mutableListOf<ViewModelSlider>()
+    private val toggleWidgets = mutableListOf<ViewModelToggle>()
 
-    private lateinit var nameField: ConfigTextFieldWidget
-    private var currentName = ""
-    private var allConfigs: List<String> = emptyList()
+    private lateinit var dropdown: ViewModelDropdown
+    private lateinit var nameField: RoundedTextField
+    private lateinit var createButton: ViewModelPillButton
+    private lateinit var renameButton: ViewModelPillButton
+    private lateinit var deleteButton: ViewModelPillButton
+    private lateinit var resetButton: ViewModelPillButton
 
-    private val sectionHeaders = mutableListOf<SectionHeader>()
+    private var pendingSave = false
+    private var saveAt = 0L
 
-    private var contentStartY = 0
-    private var panelX = 0
-    private var panelTop = 28
-    private var panelHeight = 0
-    private var resetBounds = Bounds(0, 0, 0, 0)
+    private var statusText: Text? = null
+    private var statusColor: Int = ViewModelPalette.TEXT_SECONDARY
+    private var statusUntil: Long = 0L
 
-    private var configBox = Bounds(0, 0, CONFIG_WIDTH, 0)
-    private var dropdownBounds = Bounds(0, 0, 0, 0)
-    private var dropdownMenuBounds: Bounds? = null
-    private var dropdownItems: List<Pair<String, Bounds>> = emptyList()
-    private var configMenuOpen = false
+    private val panelPadding = 14
+    private val headerHeight = 40
+    private val sliderHeight = 44
+    private val sliderSpacing = 6
+    private val sliderColumns = 2
+    private val sliderColumnGap = 10
+    private val toggleHeight = 30
+    private val toggleSpacing = 6
+    private val toggleColumns = 2
+    private val toggleColumnGap = 8
+    private val actionButtonHeight = 30
+    private val dropdownHeight = 30
+    private val inputHeight = 26
+    private val panelCornerRadius = 22f
 
     override fun init() {
         super.init()
         clearChildren()
-        sliders.clear()
-        toggles.clear()
-        buttons.clear()
-        sectionHeaders.clear()
-        configMenuOpen = false
-        dropdownItems = emptyList()
+        sliderWidgets.clear()
+        toggleWidgets.clear()
 
-        currentName = ViewModelConfigManager.currentName
-        allConfigs = ViewModelConfigManager.getConfigNames()
-
-        val minMargin = 16
-        var proposedPanelX = (width - WIDTH) / 2
-        var proposedConfigX = proposedPanelX - CONFIG_WIDTH - PANEL_GAP
-
-        if (proposedConfigX < minMargin) {
-            val delta = minMargin - proposedConfigX
-            proposedPanelX = (proposedPanelX + delta).coerceAtMost(width - WIDTH - minMargin)
-            proposedConfigX = minMargin
-        }
-
-        if (proposedPanelX + WIDTH > width - minMargin) {
-            val delta = proposedPanelX + WIDTH - (width - minMargin)
-            proposedPanelX -= delta
-            proposedConfigX = (proposedPanelX - CONFIG_WIDTH - PANEL_GAP).coerceAtLeast(minMargin)
-        }
-
-        panelX = proposedPanelX
-        val configStartX = proposedConfigX
-
-        val titleY = panelTop + 16
-        contentStartY = titleY + HEADER_SPACING
-
-        var y = contentStartY
-
-        addSectionHeader("Transform", y - SECTION_LABEL_OFFSET)
-        y += addSlider(
-            panelX, y, "Size",
-            ViewModelConfig.current.size, 0.1f, 3.0f, 1.0f,
-            { ViewModelConfig.current.size = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.size = 1.0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += SECTION_GAP
-
-        addSectionHeader("Position", y - SECTION_LABEL_OFFSET)
-        y += addSlider(
-            panelX, y, "X",
-            ViewModelConfig.current.positionX, -100f, 100f, 0f,
-            { ViewModelConfig.current.positionX = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.positionX = 0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += addSlider(
-            panelX, y, "Y",
-            ViewModelConfig.current.positionY, -100f, 100f, 0f,
-            { ViewModelConfig.current.positionY = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.positionY = 0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += addSlider(
-            panelX, y, "Z",
-            ViewModelConfig.current.positionZ, -100f, 100f, 0f,
-            { ViewModelConfig.current.positionZ = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.positionZ = 0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += SECTION_GAP
-
-        addSectionHeader("Rotation", y - SECTION_LABEL_OFFSET)
-        y += addSlider(
-            panelX, y, "Yaw",
-            ViewModelConfig.current.rotationYaw, -180f, 180f, 0f,
-            { ViewModelConfig.current.rotationYaw = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.rotationYaw = 0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += addSlider(
-            panelX, y, "Pitch",
-            ViewModelConfig.current.rotationPitch, -180f, 180f, 0f,
-            { ViewModelConfig.current.rotationPitch = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.rotationPitch = 0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += addSlider(
-            panelX, y, "Roll",
-            ViewModelConfig.current.rotationRoll, -180f, 180f, 0f,
-            { ViewModelConfig.current.rotationRoll = it; ViewModelConfigManager.saveCurrent() },
-            { ViewModelConfig.current.rotationRoll = 0f; ViewModelConfigManager.saveCurrent() }
-        )
-        y += SECTION_GAP
-
-        addSectionHeader("Animation", y - SECTION_LABEL_OFFSET)
-        y += addToggle(
-            panelX, y, "Scale Swing",
-            ViewModelConfig.current.scaleSwing
-        ) { ViewModelConfig.current.scaleSwing = it; ViewModelConfigManager.saveCurrent() }
-        y += addToggle(
-            panelX, y, "No Swing",
-            ViewModelConfig.current.noSwing
-        ) { ViewModelConfig.current.noSwing = it; ViewModelConfigManager.saveCurrent() }
-
-        val contentBottom = (sliders.map { it.y + it.height } + toggles.map { it.y + it.height })
-            .maxOrNull() ?: contentStartY
-        panelHeight = (contentBottom - panelTop) + PADDING + 10
-
-        setupConfigControls(configStartX)
-
-        sliders.forEach { addDrawableChild(it) }
-        toggles.forEach { addDrawableChild(it) }
-        buttons.forEach { addDrawableChild(it) }
-        addDrawableChild(nameField)
+        computePanels()
+        addConfigControls()
+        addMainControls()
+        reloadConfigs()
+        refreshButtonStates()
     }
 
-    private fun addSlider(
-        x: Int, y: Int, label: String,
-        value: Float, min: Float, max: Float, default: Float,
-        onChange: (Float) -> Unit, onReset: () -> Unit
-    ): Int {
-        sliders.add(
-            CompactSlider(
-                x + PADDING,
-                y,
-                WIDTH - PADDING * 2 - CompactSlider.RESET_GUTTER,
-                ITEM_H,
-                Text.literal(label),
-                value,
-                min,
-                max,
-                default,
-                onChange,
-                onReset
-            )
-        )
-        return ITEM_H + SPACING
-    }
-
-    private fun addToggle(
-        x: Int, y: Int, label: String,
-        value: Boolean,
-        onChange: (Boolean) -> Unit
-    ): Int {
-        toggles.add(
-            CompactToggle(
-                x + PADDING,
-                y,
-                WIDTH - PADDING * 2,
-                ITEM_H,
-                Text.literal(label),
-                value,
-                onChange
-            )
-        )
-        return ITEM_H + SPACING
-    }
-
-    private fun addSectionHeader(title: String, y: Int) {
-        sectionHeaders.add(SectionHeader(title, y))
-    }
-
-    private fun setupConfigControls(configX: Int) {
-        val padding = 12
-        val dropdownHeight = 26
-        val fieldHeight = 20
-        val buttonHeight = 24
-        val verticalGap = 12
-
-        val configHeight = padding + 18 + dropdownHeight + verticalGap + 12 + fieldHeight + verticalGap + buttonHeight * 2 + 8 + padding
-        val top = panelTop + max(0, (panelHeight - configHeight) / 2)
-        configBox = Bounds(configX, top, CONFIG_WIDTH, configHeight)
-
-        val dropdownY = top + padding + 18
-        dropdownBounds = Bounds(configX + padding, dropdownY, CONFIG_WIDTH - padding * 2, dropdownHeight)
-
-        val nameFieldY = dropdownY + dropdownHeight + verticalGap + 12
-        nameField = ConfigTextFieldWidget(textRenderer, configX + padding, nameFieldY, CONFIG_WIDTH - padding * 2, fieldHeight, Text.empty())
-        nameField.text = currentName
-        nameField.setEditableColor(TEXT)
-
-        val buttonsY = nameField.y + fieldHeight + verticalGap
-        val buttonWidth = (CONFIG_WIDTH - padding * 2 - SPACING) / 2
-        buttons.add(
-            CompactButton(configX + padding, buttonsY, buttonWidth, buttonHeight, Text.literal("New")) { createConfigProfile() }
-        )
-        val rename = CompactButton(
-            configX + padding + buttonWidth + SPACING,
-            buttonsY,
-            buttonWidth,
-            buttonHeight,
-            Text.literal("Rename")
-        ) { renameConfigProfile() }
-        val delete = CompactButton(
-            configX + padding,
-            buttonsY + buttonHeight + 8,
-            CONFIG_WIDTH - padding * 2,
-            buttonHeight,
-            Text.literal("Delete")
-        ) { deleteConfigProfile() }
-
-        val canModify = !ViewModelConfigManager.isDefault(currentName) && allConfigs.size > 1
-        rename.active = canModify
-        delete.active = canModify
-
-        buttons.add(rename)
-        buttons.add(delete)
-    }
-
-    private fun selectConfigProfile(name: String) {
-        if (ViewModelConfigManager.setActive(name)) {
-            currentName = ViewModelConfigManager.currentName
-            client?.setScreen(ViewModelScreen())
+    override fun tick() {
+        if (pendingSave && Util.getMeasuringTimeMs() >= saveAt) {
+            ViewModelConfigManager.saveCurrent()
+            pendingSave = false
         }
     }
 
-    private fun createConfigProfile() {
-        val requested = nameField.text.ifBlank { "New" }
-        if (ViewModelConfigManager.createConfig(requested)) {
-            allConfigs = ViewModelConfigManager.getConfigNames()
-            nameField.text = requested
-            configMenuOpen = false
+    override fun close() {
+        if (pendingSave) {
+            pendingSave = false
         }
-    }
-
-    private fun renameConfigProfile() {
-        if (ViewModelConfigManager.renameConfig(currentName, nameField.text)) {
-            currentName = ViewModelConfigManager.currentName
-            allConfigs = ViewModelConfigManager.getConfigNames()
-            client?.setScreen(ViewModelScreen())
-        }
-    }
-
-    private fun deleteConfigProfile() {
-        if (ViewModelConfigManager.deleteConfig(currentName)) {
-            currentName = ViewModelConfigManager.currentName
-            allConfigs = ViewModelConfigManager.getConfigNames()
-            client?.setScreen(ViewModelScreen())
-        }
+        ViewModelConfigManager.saveCurrent()
+        super.close()
     }
 
     override fun render(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
-        renderConfigCard(context, mouseX, mouseY)
-        renderPanel(context)
+        drawPanel(context, configPanel, Text.translatable("viewmodel.gui.configs"))
+        drawPanel(context, mainPanel, title)
+
+        drawSubtitle(context)
+        drawConfigHeader(context)
 
         super.render(context, mouseX, mouseY, delta)
-
-        if (configMenuOpen) {
-            renderDropdown(context, mouseX, mouseY)
-        }
-
-        renderResetButton(context, mouseX, mouseY)
-    }
-
-    private fun renderPanel(context: DrawContext) {
-        UiPrimitives.fillRoundedRect(context, panelX, panelTop, WIDTH, panelHeight, RADIUS, PANEL)
-        UiPrimitives.drawRoundedBorder(context, panelX, panelTop, WIDTH, panelHeight, RADIUS, BORDER)
-
-        val title = Text.literal("ViewModel").styled { it.withBold(true) }
-        val titleY = panelTop + 16
-        context.drawText(
-            textRenderer,
-            title,
-            panelX + WIDTH / 2 - textRenderer.getWidth(title) / 2,
-            titleY,
-            ACCENT,
-            false
-        )
-
-        context.fill(panelX + PADDING, titleY + 14, panelX + WIDTH - PADDING, titleY + 15, BORDER_SOFT)
-
-        sectionHeaders.forEach { renderSectionTitle(context, panelX, it.y, it.title) }
-    }
-
-    private fun renderConfigCard(context: DrawContext, mouseX: Int, mouseY: Int) {
-        UiPrimitives.fillRoundedRect(context, configBox.x, configBox.y, configBox.w, configBox.h, RADIUS, CARD)
-        UiPrimitives.drawRoundedBorder(context, configBox.x, configBox.y, configBox.w, configBox.h, RADIUS, BORDER)
-
-        context.drawText(
-            textRenderer,
-            Text.literal("Config").styled { it.withBold(true) },
-            configBox.x + 14,
-            configBox.y + 6,
-            ACCENT,
-            false
-        )
-
-        context.drawText(
-            textRenderer,
-            Text.literal("Profile"),
-            dropdownBounds.x,
-            dropdownBounds.y - 10,
-            TEXT_DIM,
-            false
-        )
-
-        drawButtonLike(context, dropdownBounds, currentName, dropdownBounds.contains(mouseX, mouseY), configMenuOpen)
-
-        context.drawText(
-            textRenderer,
-            Text.literal("Name"),
-            nameField.x,
-            nameField.y - 10,
-            TEXT_DIM,
-            false
-        )
-    }
-
-    private fun renderDropdown(context: DrawContext, mouseX: Int, mouseY: Int) {
-        val width = dropdownBounds.w
-        val leftPreferred = configBox.x - width - 12
-        val listX = leftPreferred.takeIf { it >= 12 }
-            ?: (configBox.x + configBox.w + 12).coerceAtMost(this.width - width - 12)
-
-        val totalHeight = if (allConfigs.isNotEmpty()) allConfigs.size * (LIST_ITEM_H + 2) - 2 else 0
-        var bgTop = dropdownBounds.y - 6
-        val maxTop = (height - totalHeight - 24).coerceAtLeast(12)
-        bgTop = bgTop.coerceIn(12, maxTop)
-
-        if (totalHeight > 0) {
-            val bgHeight = totalHeight + 8
-            UiPrimitives.fillRoundedRect(context, listX, bgTop, width, bgHeight, RADIUS, CARD)
-            UiPrimitives.drawRoundedBorder(context, listX, bgTop, width, bgHeight, RADIUS, BORDER)
-            dropdownMenuBounds = Bounds(listX, bgTop, width, bgHeight)
-        }
-
-        var listY = bgTop + 4
-        val items = mutableListOf<Pair<String, Bounds>>()
-
-        allConfigs.forEach { config ->
-            val bounds = Bounds(listX, listY, width, LIST_ITEM_H)
-            val hovered = bounds.contains(mouseX, mouseY)
-            drawButtonLike(context, bounds, config, hovered, config == currentName)
-            items.add(config to bounds)
-            listY += LIST_ITEM_H + 2
-        }
-
-        dropdownItems = items
-    }
-
-    private fun drawButtonLike(context: DrawContext, bounds: Bounds, label: String, hovered: Boolean, selected: Boolean) {
-        val fillColor = when {
-            hovered -> ACCENT
-            selected -> 0xFF1B1E27.toInt()
-            else -> CARD
-        }
-        val textColor = if (hovered) 0xFF04111B.toInt() else TEXT
-
-        val innerRadius = (RADIUS - 6).coerceAtLeast(8)
-        UiPrimitives.fillRoundedRect(context, bounds.x, bounds.y, bounds.w, bounds.h, innerRadius, fillColor)
-        UiPrimitives.drawRoundedBorder(context, bounds.x, bounds.y, bounds.w, bounds.h, innerRadius, BORDER_SOFT)
-
-        val tx = bounds.x + (bounds.w - textRenderer.getWidth(label)) / 2
-        val ty = bounds.y + (bounds.h - 8) / 2
-        context.drawText(textRenderer, Text.literal(label), tx, ty, textColor, false)
-    }
-
-    private fun renderSectionTitle(context: DrawContext, x: Int, y: Int, title: String) {
-        context.drawText(
-            textRenderer,
-            Text.literal(title).styled { it.withBold(true) },
-            x + PADDING,
-            y,
-            TEXT_DIM,
-            false
-        )
-    }
-
-    private fun renderResetButton(context: DrawContext, mouseX: Int, mouseY: Int) {
-        val btnW = WIDTH - PADDING * 2
-        val btnH = 32
-        val btnX = panelX + PADDING
-        val btnY = panelTop + panelHeight + 18
-
-        resetBounds = Bounds(btnX, btnY, btnW, btnH)
-
-        val hovered = resetBounds.contains(mouseX.toDouble(), mouseY.toDouble())
-        val btnColor = if (hovered) ACCENT else 0xFF1B1F27.toInt()
-        val textColor = if (hovered) 0xFF03111B.toInt() else TEXT
-
-        val pillRadius = (RADIUS - 4).coerceAtLeast(12)
-        UiPrimitives.fillRoundedRect(context, btnX, btnY, btnW, btnH, pillRadius, btnColor)
-        UiPrimitives.drawRoundedBorder(context, btnX, btnY, btnW, btnH, pillRadius, BORDER)
-
-        context.drawText(
-            textRenderer,
-            Text.literal("Reset All"),
-            btnX + (btnW - textRenderer.getWidth("Reset All")) / 2,
-            btnY + (btnH - 8) / 2,
-            textColor,
-            false
-        )
+        drawStatus(context)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (dropdownBounds.contains(mouseX, mouseY)) {
-            configMenuOpen = !configMenuOpen
-            return true
-        }
-
-        if (configMenuOpen) {
-            dropdownItems.firstOrNull { it.second.contains(mouseX, mouseY) }?.let {
-                configMenuOpen = false
-                selectConfigProfile(it.first)
-                return true
-            }
-
-            val menuBounds = dropdownMenuBounds
-            if (menuBounds != null && !menuBounds.contains(mouseX, mouseY)) {
-                configMenuOpen = false
+        val handled = super.mouseClicked(mouseX, mouseY, button)
+        if (::dropdown.isInitialized && dropdown.isExpanded()) {
+            val baseArea = mouseX >= dropdown.x && mouseX <= dropdown.x + dropdown.width &&
+                mouseY >= dropdown.y && mouseY <= dropdown.y + dropdown.height
+            if (!baseArea && !dropdown.isInsideDropdown(mouseX, mouseY)) {
+                dropdown.collapse()
             }
         }
-
-        if (resetBounds.contains(mouseX, mouseY)) {
-            sliders.forEach { it.reset() }
-            toggles.forEach { it.reset() }
-            client?.setScreen(ViewModelScreen())
-            return true
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button)
+        return handled
     }
 
-    override fun shouldPause() = false
+    // Determine panel locations so the main canvas stays centered with a left config rail.
+    private fun computePanels() {
+        val sliderCount = sliderDefinitions().size
+        val toggleCount = toggleDefinitions().size
+        val sliderRows = rowsFor(sliderCount, sliderColumns)
+        val toggleRows = rowsFor(toggleCount, toggleColumns)
 
-    override fun close() {
-        ViewModelConfigManager.saveCurrent()
-        super.close()
+        val sliderSectionHeight = if (sliderRows == 0) 0 else sliderRows * sliderHeight + (sliderRows - 1) * sliderSpacing
+        val toggleSectionHeight = if (toggleRows == 0) 0 else toggleRows * toggleHeight + (toggleRows - 1) * toggleSpacing
+        val sectionsGap = if (sliderRows > 0 && toggleRows > 0) 12 else 0
+
+        val minMargin = 18
+        val mainWidthTarget = 360
+        val minMainWidth = 300
+        val availableMainWidth = width - minMargin * 2
+        mainPanel.width = max(minMainWidth, minOf(mainWidthTarget, availableMainWidth))
+        val baseHeight = panelPadding * 2 + headerHeight + sliderSectionHeight + toggleSectionHeight + sectionsGap + actionButtonHeight + 12
+        mainPanel.height = max(baseHeight, headerHeight + actionButtonHeight + panelPadding * 2)
+
+        mainPanel.x = width / 2 - mainPanel.width / 2
+        mainPanel.y = height / 2 - mainPanel.height / 2
+
+        val configGap = 16
+        val availableLeft = mainPanel.x - configGap - minMargin
+
+        configPanel.width = when {
+            availableLeft >= 200 -> 200
+            availableLeft >= 160 -> availableLeft
+            else -> max(150, availableLeft)
+        }
+
+        val configTopSpace = panelPadding + 32
+        val configContentHeight =
+            configTopSpace + dropdownHeight + 10 + inputHeight + 12 + actionButtonHeight * 3 + 18 + textRenderer.fontHeight + panelPadding
+        configPanel.height = max(configContentHeight, actionButtonHeight * 3 + panelPadding * 2)
+        configPanel.x = (mainPanel.x - configGap - configPanel.width).coerceAtLeast(minMargin)
+        configPanel.y = mainPanel.y
+    }
+
+    private fun addMainControls() {
+        val sliderDefs = sliderDefinitions()
+        val toggleDefs = toggleDefinitions()
+        val sliderRows = rowsFor(sliderDefs.size, sliderColumns)
+        val sliderAreaWidth = mainPanel.width - panelPadding * 2
+        val sliderColumnWidth = if (sliderColumns <= 1) sliderAreaWidth else {
+            val totalGap = sliderColumnGap * (sliderColumns - 1)
+            ((sliderAreaWidth - totalGap) / sliderColumns).coerceAtLeast(120)
+        }
+
+        val sliderStartX = mainPanel.x + panelPadding
+        val sliderStartY = mainPanel.y + panelPadding + headerHeight
+
+        sliderDefs.forEachIndexed { index, definition ->
+            val column = if (sliderColumns <= 1) 0 else index % sliderColumns
+            val row = if (sliderColumns <= 1) index else index / sliderColumns
+            val sliderX = sliderStartX + column * (sliderColumnWidth + sliderColumnGap)
+            val sliderY = sliderStartY + row * (sliderHeight + sliderSpacing)
+
+            val slider = ViewModelSlider(
+                sliderX,
+                sliderY,
+                sliderColumnWidth,
+                sliderHeight,
+                textRenderer,
+                Text.translatable(definition.key),
+                definition.min,
+                definition.max,
+                definition.step,
+                definition.getter,
+                definition.formatter
+            ) {
+                definition.setter(it)
+                scheduleSave()
+            }
+            sliderWidgets += slider
+            addDrawableChild(slider)
+        }
+
+        val toggleColumnWidth = if (toggleColumns <= 1) sliderAreaWidth else {
+            val totalGap = toggleColumnGap * (toggleColumns - 1)
+            ((sliderAreaWidth - totalGap) / toggleColumns).coerceAtLeast(110)
+        }
+        var toggleStartY = sliderStartY
+        if (sliderRows > 0) {
+            toggleStartY += sliderRows * sliderHeight + (sliderRows - 1) * sliderSpacing
+        }
+        if (sliderRows > 0 && toggleDefs.isNotEmpty()) {
+            toggleStartY += 12
+        }
+
+        toggleDefs.forEachIndexed { index, definition ->
+            val column = if (toggleColumns <= 1) 0 else index % toggleColumns
+            val row = if (toggleColumns <= 1) index else index / toggleColumns
+            val toggleX = sliderStartX + column * (toggleColumnWidth + toggleColumnGap)
+            val toggleY = toggleStartY + row * (toggleHeight + toggleSpacing)
+
+            val toggle = ViewModelToggle(
+                toggleX,
+                toggleY,
+                toggleColumnWidth,
+                toggleHeight,
+                textRenderer,
+                Text.translatable(definition.key),
+                definition.getter
+            ) {
+                definition.setter(it)
+                scheduleSave()
+            }
+            toggleWidgets += toggle
+            addDrawableChild(toggle)
+        }
+
+        resetButton = ViewModelPillButton(
+            sliderStartX,
+            mainPanel.y + mainPanel.height - panelPadding - actionButtonHeight,
+            sliderAreaWidth,
+            actionButtonHeight,
+            textRenderer,
+            Text.translatable("viewmodel.gui.reset"),
+            ViewModelPalette.SURFACE_HIGHLIGHT
+        ) {
+            resetCurrentProfile()
+        }
+        addDrawableChild(resetButton)
+    }
+
+    private fun addConfigControls() {
+        val leftPadding = 16
+        val innerWidth = configPanel.width - leftPadding * 2
+        val titleY = configPanel.y + panelPadding
+        dropdown = ViewModelDropdown(
+            configPanel.x + leftPadding,
+            titleY + 32,
+            innerWidth,
+            dropdownHeight,
+            textRenderer,
+            Text.translatable("viewmodel.gui.config_placeholder"),
+            { ViewModelConfigManager.currentName }
+        ) { name ->
+            if (ViewModelConfigManager.setActive(name)) {
+                scheduleSave()
+                refreshButtonStates()
+                showStatus(Text.translatable("viewmodel.gui.status.profile", name), ViewModelPalette.SUCCESS)
+                dropdown.collapse()
+            }
+        }
+
+        addDrawableChild(dropdown)
+
+        nameField = RoundedTextField(
+            textRenderer,
+            configPanel.x + leftPadding,
+            dropdown.y + dropdown.height + 10,
+            innerWidth,
+            inputHeight,
+            Text.translatable("viewmodel.gui.config_input")
+        )
+        nameField.setMaxLength(32)
+        addDrawableChild(nameField)
+
+        val halfWidth = (innerWidth - 6) / 2
+        val buttonY = nameField.y + nameField.height + 12
+        createButton = ViewModelPillButton(
+            configPanel.x + leftPadding,
+            buttonY,
+            halfWidth,
+            actionButtonHeight,
+            textRenderer,
+            Text.translatable("viewmodel.gui.create"),
+            ViewModelPalette.ACCENT
+        ) { handleCreate() }
+        renameButton = ViewModelPillButton(
+            configPanel.x + leftPadding + halfWidth + 6,
+            buttonY,
+            halfWidth,
+            actionButtonHeight,
+            textRenderer,
+            Text.translatable("viewmodel.gui.rename"),
+            ViewModelPalette.SURFACE_HIGHLIGHT
+        ) { handleRename() }
+        deleteButton = ViewModelPillButton(
+            configPanel.x + leftPadding,
+            buttonY + actionButtonHeight + 10,
+            innerWidth,
+            actionButtonHeight,
+            textRenderer,
+            Text.translatable("viewmodel.gui.delete"),
+            ViewModelPalette.WARNING
+        ) { handleDelete() }
+
+        addDrawableChild(createButton)
+        addDrawableChild(renameButton)
+        addDrawableChild(deleteButton)
+    }
+
+    private fun handleCreate() {
+        val created = ViewModelConfigManager.createConfig(nameField.text)
+        if (created != null) {
+            ViewModelConfigManager.setActive(created)
+            nameField.text = ""
+            reloadConfigs()
+            refreshButtonStates()
+            showStatus(Text.translatable("viewmodel.gui.status.created", created), ViewModelPalette.SUCCESS)
+        } else {
+            showStatus(Text.translatable("viewmodel.gui.status.create_failed"), ViewModelPalette.WARNING)
+        }
+    }
+
+    private fun handleRename() {
+        val newName = nameField.text
+        if (newName.isBlank()) {
+            showStatus(Text.translatable("viewmodel.gui.status.rename_failed"), ViewModelPalette.WARNING)
+            return
+        }
+
+        val current = ViewModelConfigManager.currentName
+        val renamed = ViewModelConfigManager.renameConfig(current, newName)
+        if (renamed != null) {
+            nameField.text = ""
+            reloadConfigs()
+            refreshButtonStates()
+            showStatus(Text.translatable("viewmodel.gui.status.renamed", renamed), ViewModelPalette.SUCCESS)
+        } else {
+            showStatus(Text.translatable("viewmodel.gui.status.rename_failed"), ViewModelPalette.WARNING)
+        }
+    }
+
+    private fun handleDelete() {
+        val current = ViewModelConfigManager.currentName
+        if (ViewModelConfigManager.deleteConfig(current)) {
+            reloadConfigs()
+            refreshButtonStates()
+            showStatus(Text.translatable("viewmodel.gui.status.deleted", current), ViewModelPalette.SUCCESS)
+        } else {
+            showStatus(Text.translatable("viewmodel.gui.status.delete_failed"), ViewModelPalette.WARNING)
+        }
+    }
+
+    private fun resetCurrentProfile() {
+        val config = ViewModelConfig.current
+        val defaults = ViewModelConfig()
+        config.size = defaults.size
+        config.positionX = defaults.positionX
+        config.positionY = defaults.positionY
+        config.positionZ = defaults.positionZ
+        config.rotationYaw = defaults.rotationYaw
+        config.rotationPitch = defaults.rotationPitch
+        config.rotationRoll = defaults.rotationRoll
+        config.noSwing = defaults.noSwing
+        config.scaleSwing = defaults.scaleSwing
+        scheduleSave()
+        showStatus(Text.translatable("viewmodel.gui.status.reset"), ViewModelPalette.SUCCESS)
+    }
+
+    private fun reloadConfigs() {
+        if (::dropdown.isInitialized) {
+            dropdown.setOptions(ViewModelConfigManager.getConfigNames())
+        }
+    }
+
+    private fun refreshButtonStates() {
+        val isDefault = ViewModelConfigManager.isDefault(ViewModelConfigManager.currentName)
+        if (::renameButton.isInitialized) {
+            renameButton.active = !isDefault
+        }
+        if (::deleteButton.isInitialized) {
+            deleteButton.active = !isDefault
+        }
+    }
+
+    private fun sliderDefinitions(): List<SliderDefinition> = listOf(
+        SliderDefinition(
+            "viewmodel.gui.size",
+            0.2f,
+            2.5f,
+            0.01f,
+            { ViewModelConfig.current.size },
+            { ViewModelConfig.current.size = it },
+            { value -> String.format(Locale.ROOT, "%.2fx", value) }
+        ),
+        SliderDefinition(
+            "viewmodel.gui.position_x",
+            -80f,
+            80f,
+            1f,
+            { ViewModelConfig.current.positionX },
+            { ViewModelConfig.current.positionX = it },
+            { value -> formatOffset(value) }
+        ),
+        SliderDefinition(
+            "viewmodel.gui.position_y",
+            -80f,
+            80f,
+            1f,
+            { ViewModelConfig.current.positionY },
+            { ViewModelConfig.current.positionY = it },
+            { value -> formatOffset(value) }
+        ),
+        SliderDefinition(
+            "viewmodel.gui.position_z",
+            -80f,
+            80f,
+            1f,
+            { ViewModelConfig.current.positionZ },
+            { ViewModelConfig.current.positionZ = it },
+            { value -> formatOffset(value) }
+        ),
+        SliderDefinition(
+            "viewmodel.gui.rotation_yaw",
+            -180f,
+            180f,
+            1f,
+            { ViewModelConfig.current.rotationYaw },
+            { ViewModelConfig.current.rotationYaw = it },
+            { value -> formatDegrees(value) }
+        ),
+        SliderDefinition(
+            "viewmodel.gui.rotation_pitch",
+            -180f,
+            180f,
+            1f,
+            { ViewModelConfig.current.rotationPitch },
+            { ViewModelConfig.current.rotationPitch = it },
+            { value -> formatDegrees(value) }
+        ),
+        SliderDefinition(
+            "viewmodel.gui.rotation_roll",
+            -180f,
+            180f,
+            1f,
+            { ViewModelConfig.current.rotationRoll },
+            { ViewModelConfig.current.rotationRoll = it },
+            { value -> formatDegrees(value) }
+        )
+    )
+
+    private fun toggleDefinitions(): List<ToggleDefinition> = listOf(
+        ToggleDefinition(
+            "viewmodel.gui.no_swing",
+            { ViewModelConfig.current.noSwing },
+            { ViewModelConfig.current.noSwing = it }
+        ),
+        ToggleDefinition(
+            "viewmodel.gui.scale_swing",
+            { ViewModelConfig.current.scaleSwing },
+            { ViewModelConfig.current.scaleSwing = it }
+        )
+    )
+
+    private fun rowsFor(count: Int, columns: Int): Int =
+        if (count <= 0 || columns <= 0) 0 else (count + columns - 1) / columns
+
+    private fun drawPanel(context: DrawContext, panel: PanelBounds, header: Text) {
+        GuiPrimitives.fillRoundedRect(
+            context,
+            panel.x.toFloat(),
+            panel.y.toFloat(),
+            panel.width.toFloat(),
+            panel.height.toFloat(),
+            panelCornerRadius,
+            ViewModelPalette.PANEL
+        )
+        context.drawText(
+            textRenderer,
+            header,
+            panel.x + panelPadding,
+            panel.y + panelPadding - 2,
+            ViewModelPalette.rgb(ViewModelPalette.TEXT_PRIMARY),
+            false
+        )
+    }
+
+    private fun drawSubtitle(context: DrawContext) {
+        val subtitle = Text.translatable("viewmodel.gui.subtitle")
+        context.drawText(
+            textRenderer,
+            subtitle,
+            mainPanel.x + panelPadding,
+            mainPanel.y + panelPadding + 12,
+            ViewModelPalette.rgb(ViewModelPalette.TEXT_MUTED),
+            false
+        )
+    }
+
+    private fun drawConfigHeader(context: DrawContext) {
+        if (!::dropdown.isInitialized) return
+        val label = Text.translatable("viewmodel.gui.active_profile")
+        context.drawText(
+            textRenderer,
+            label,
+            dropdown.x,
+            dropdown.y - 14,
+            ViewModelPalette.rgb(ViewModelPalette.TEXT_MUTED),
+            false
+        )
+    }
+
+    private fun drawStatus(context: DrawContext) {
+        val now = Util.getMeasuringTimeMs()
+        val message = statusText ?: return
+        if (now > statusUntil) {
+            statusText = null
+            return
+        }
+
+        context.drawText(
+            textRenderer,
+            message,
+            configPanel.x + panelPadding,
+            configPanel.y + configPanel.height - panelPadding - textRenderer.fontHeight,
+            ViewModelPalette.rgb(statusColor),
+            false
+        )
+    }
+
+    private fun showStatus(text: Text, color: Int, duration: Long = 2500L) {
+        statusText = text
+        statusColor = color
+        statusUntil = Util.getMeasuringTimeMs() + duration
+    }
+
+    private fun formatOffset(value: Float): String =
+        String.format(Locale.ROOT, "%+.0f", value)
+
+    private fun formatDegrees(value: Float): String =
+        String.format(Locale.ROOT, "%+.0f deg", value)
+
+    // Debounce disk writes while the player drags sliders.
+    private fun scheduleSave() {
+        pendingSave = true
+        saveAt = Util.getMeasuringTimeMs() + 300
     }
 }
