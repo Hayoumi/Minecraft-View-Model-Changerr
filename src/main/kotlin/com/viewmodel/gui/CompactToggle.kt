@@ -13,11 +13,13 @@ class CompactToggle(
     (button as? CompactToggle)?.toggle()
 }, DEFAULT_NARRATION_SUPPLIER) {
 
-    // Черно-бело-серая палитра
-    private val TOGGLE_OFF = 0xFF3A3A3A.toInt()
-    private val TOGGLE_ON = 0xFFFFFFFF.toInt()
-    private val HANDLE = 0xFF0F0F0F.toInt()
-    private val TEXT = 0xFFE0E0E0.toInt()
+    // Мягкая палитра
+    private val TOGGLE_OFF = 0xFF1F2227.toInt()
+    private val TOGGLE_ON = 0xFF0A84FF.toInt()
+    private val HANDLE = 0xFFFFFFFF.toInt()
+    private val TEXT = 0xFFF5F7FA.toInt()
+    private val TRACK_BORDER = 0x40333B45
+    private val radius = 9
 
     private var progress = if (enabled) 1f else 0f
     private val defaultValue = enabled
@@ -45,17 +47,18 @@ class CompactToggle(
         context.drawText(textRenderer, label, x, y + (height - 8) / 2, TEXT, false)
         
         // Toggle switch
-        val toggleW = 32
-        val toggleH = 16
+        val toggleW = 36
+        val toggleH = 18
         val toggleX = x + width - toggleW
         val toggleY = y + (height - toggleH) / 2
         
         // Фон
         val bgColor = interpolate(TOGGLE_OFF, TOGGLE_ON, progress)
-        context.fill(toggleX, toggleY, toggleX + toggleW, toggleY + toggleH, bgColor)
+        UiPrimitives.fillRoundedRect(context, toggleX, toggleY, toggleW, toggleH, radius, bgColor)
+        UiPrimitives.drawRoundedBorder(context, toggleX, toggleY, toggleW, toggleH, radius, TRACK_BORDER)
         
         // Ручка
-        val handleSize = 12
+        val handleSize = 14
         val handleX = (toggleX + 2 + (toggleW - handleSize - 4) * progress).toInt()
         val handleY = toggleY + (toggleH - handleSize) / 2
         

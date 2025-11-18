@@ -21,13 +21,14 @@ class CompactSlider(
     ((value - min) / (max - min)).toDouble()
 ) {
 
-    private val TRACK_BG = 0xFF3A3A3A.toInt()
-    private val TRACK_FILL = 0xFFFFFFFF.toInt()
+    private val TRACK_BG = 0xFF1F2227.toInt()
+    private val TRACK_FILL = 0xFF0A84FF.toInt()
     private val HANDLE = 0xFFFFFFFF.toInt()
-    private val TEXT = 0xFFE0E0E0.toInt()
-    private val TEXT_DIM = 0xFFA0A0A0.toInt()
-    private val RESET_BTN = 0xFF3A3A3A.toInt()
-    private val RESET_HOVER = 0xFF505050.toInt()
+    private val TEXT = 0xFFF5F7FA.toInt()
+    private val TEXT_DIM = 0xFF9EA3AA.toInt()
+    private val RESET_BTN = 0xFF1F2227.toInt()
+    private val RESET_HOVER = 0xFF0A84FF.toInt()
+    private val RADIUS = 8
 
     private var currentValue = value
     private val resetBtnSize = 18
@@ -74,7 +75,7 @@ class CompactSlider(
         val trackH = 3
         val trackLeft = x
         val trackRight = x + width
-        context.fill(trackLeft, trackY, trackRight, trackY + trackH, TRACK_BG)
+        UiPrimitives.fillRoundedRect(context, trackLeft, trackY, trackRight - trackLeft, trackH, 2, TRACK_BG)
 
         // Ручка как в ванильном SliderWidget
         val innerWidth = width - 8
@@ -87,8 +88,8 @@ class CompactSlider(
         }
 
         // Круглая ручка
-        val handleRadius = 4
-        drawCircle(context, handleCenterX, trackY + trackH / 2, handleRadius, HANDLE)
+        val handleRadius = 6
+        UiPrimitives.fillRoundedRect(context, handleCenterX - handleRadius, trackY - 2, handleRadius * 2, handleRadius * 2 + 4, 8, HANDLE)
 
         // Кнопка сброса — справа от слайдера, но в зарезервированном пространстве панели
         val resetX = x + width + resetGap
@@ -97,7 +98,8 @@ class CompactSlider(
                 mouseY >= resetY && mouseY <= resetY + resetBtnSize
 
         val resetColor = if (resetHovered) RESET_HOVER else RESET_BTN
-        context.fill(resetX, resetY, resetX + resetBtnSize, resetY + resetBtnSize, resetColor)
+        UiPrimitives.fillRoundedRect(context, resetX, resetY, resetBtnSize, resetBtnSize, RADIUS, resetColor)
+        UiPrimitives.drawRoundedBorder(context, resetX, resetY, resetBtnSize, resetBtnSize, RADIUS, 0x40333B45)
 
         // Центруем "⟲"
         val emoji = "⟲"
@@ -144,7 +146,4 @@ class CompactSlider(
         applyValue()
     }
 
-    private fun drawCircle(context: DrawContext, cx: Int, cy: Int, r: Int, color: Int) {
-        context.fill(cx - r, cy - r, cx + r, cy + r, color)
-    }
 }
