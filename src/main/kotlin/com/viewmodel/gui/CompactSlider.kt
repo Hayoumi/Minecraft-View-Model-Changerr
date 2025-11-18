@@ -1,9 +1,9 @@
 package com.viewmodel.gui
 
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.widget.SliderWidget
 import net.minecraft.text.Text
-import net.minecraft.client.MinecraftClient
 import kotlin.math.round
 
 class CompactSlider(
@@ -21,18 +21,28 @@ class CompactSlider(
     ((value - min) / (max - min)).toDouble()
 ) {
 
-    private val TRACK_BG = 0xFF1F2227.toInt()
-    private val TRACK_FILL = 0xFF0A84FF.toInt()
-    private val HANDLE = 0xFFFFFFFF.toInt()
-    private val TEXT = 0xFFF5F7FA.toInt()
-    private val TEXT_DIM = 0xFF9EA3AA.toInt()
-    private val RESET_BTN = 0xFF1F2227.toInt()
-    private val RESET_HOVER = 0xFF0A84FF.toInt()
-    private val RADIUS = 8
+    companion object {
+        const val RESET_GUTTER = 56
+    }
+
+    private val trackBg = 0xFF151922.toInt()
+    private val trackFill = 0xFF34C759.toInt()
+    private val handleColor = 0xFFF6F7F9.toInt()
+    private val handleBorder = 0x18000000
+    private val textPrimary = 0xFFF6F7F9.toInt()
+    private val textMuted = 0xFF98A2B3.toInt()
+    private val resetIdle = 0xFF1C222C.toInt()
+    private val resetHover = 0xFF34C759.toInt()
+    private val resetTextIdle = 0xFF34C759.toInt()
+    private val resetTextHover = 0xFF071109.toInt()
+
+    private val resetBtnWidth = 52
+    private val resetBtnHeight = 22
+    private val resetGap = 8
+    private val trackHeight = 6
+    private val handleSize = 16
 
     private var currentValue = value
-    private val resetBtnSize = 18
-    private val resetGap = 6
     private val step = 0.05f
 
     init {
@@ -52,84 +62,74 @@ class CompactSlider(
     }
 
     override fun renderWidget(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
-        val mc = MinecraftClient.getInstance()
-        val textRenderer = mc.textRenderer
+        val textRenderer = MinecraftClient.getInstance().textRenderer
 
-        // Лейбл
-        context.drawText(textRenderer, label, x, y, TEXT, false)
+        val labelY = y + 2
+        context.drawText(textRenderer, label, x, labelY, textPrimary, false)
 
-        // Значение справа от лейбла
         val displayValue = "%.2f".format(currentValue)
         val labelWidth = textRenderer.getWidth(label)
         context.drawText(
             textRenderer,
             Text.literal(displayValue),
             x + labelWidth + 8,
-            y,
-            TEXT_DIM,
+            labelY,
+            textMuted,
             false
         )
 
-        // Трек на ширину виджета
-        val trackY = y + 14
-        val trackH = 3
-        val trackLeft = x
-        val trackRight = x + width
-        UiPrimitives.fillRoundedRect(context, trackLeft, trackY, trackRight - trackLeft, trackH, 2, TRACK_BG)
+        val trackCenterY = y + height - 10
+        val pillRadius = trackHeight / 2
+        val trackTop = trackCenterY - pillRadius
+        UiPrimitives.fillRoundedRect(context, x, trackTop, width, trackHeight, pillRadius, trackBg)
 
-        // Ручка как в ванильном SliderWidget
-        val innerWidth = width - 8
-        val handleLeft = (x + value * innerWidth).toInt()
-        val handleCenterX = handleLeft + 4
-
-        // Заполнение до центра ручки
-        if (handleCenterX > trackLeft) {
-            context.fill(trackLeft, trackY, handleCenterX, trackY + trackH, TRACK_FILL)
+        val filledWidth = (value * width).toInt().coerceIn(0, width)
+        if (filledWidth > 0) {
+            UiPrimitives.fillRoundedRect(context, x, trackTop, filledWidth, trackHeight, pillRadius, trackFill)
         }
 
-        // Круглая ручка
-        val handleRadius = 6
-        UiPrimitives.fillRoundedRect(context, handleCenterX - handleRadius, trackY - 2, handleRadius * 2, handleRadius * 2 + 4, 8, HANDLE)
+        val handleCenterX = (x + filledWidth).coerceIn(x, x + width)
+        val handleX = handleCenterX - handleSize / 2
+        val handleY = trackCenterY - handleSize / 2
+        UiPrimitives.fillRoundedRect(context, handleX, handleY, handleSize, handleSize, handleSize / 2, handleColor)
+        UiPrimitives.drawRoundedBorder(context, handleX, handleY, handleSize, handleSize, handleSize / 2, handleBorder)
 
-        // Кнопка сброса — справа от слайдера, но в зарезервированном пространстве панели
         val resetX = x + width + resetGap
-        val resetY = y + (height - resetBtnSize) / 2
-        val resetHovered = mouseX >= resetX && mouseX <= resetX + resetBtnSize &&
-                mouseY >= resetY && mouseY <= resetY + resetBtnSize
+        val resetY = y + (height - resetBtnHeight) / 2
+        val resetHovered = mouseX >= resetX && mouseX <= resetX + resetBtnWidth &&
+            mouseY >= resetY && mouseY <= resetY + resetBtnHeight
 
-        val resetColor = if (resetHovered) RESET_HOVER else RESET_BTN
-        UiPrimitives.fillRoundedRect(context, resetX, resetY, resetBtnSize, resetBtnSize, RADIUS, resetColor)
-        UiPrimitives.drawRoundedBorder(context, resetX, resetY, resetBtnSize, resetBtnSize, RADIUS, 0x40333B45)
+        val resetFill = if (resetHovered) resetHover else resetIdle
+        val resetTextColor = if (resetHovered) resetTextHover else resetTextIdle
+        UiPrimitives.fillRoundedRect(context, resetX, resetY, resetBtnWidth, resetBtnHeight, resetBtnHeight / 2, resetFill)
+        UiPrimitives.drawRoundedBorder(context, resetX, resetY, resetBtnWidth, resetBtnHeight, resetBtnHeight / 2, handleBorder)
 
-        // Центруем "⟲"
-        val emoji = "⟲"
-        val emojiWidth = textRenderer.getWidth(emoji)
-        val emojiX = resetX + (resetBtnSize - emojiWidth) / 2
-        val emojiY = resetY + (resetBtnSize - textRenderer.fontHeight) / 2
-        context.drawText(textRenderer, Text.literal(emoji), emojiX, emojiY, TEXT, false)
+        val resetLabel = "RESET"
+        val resetTextX = resetX + (resetBtnWidth - textRenderer.getWidth(resetLabel)) / 2
+        val resetTextY = resetY + (resetBtnHeight - 8) / 2
+        context.drawText(textRenderer, Text.literal(resetLabel), resetTextX, resetTextY, resetTextColor, false)
     }
 
-    // расширяем область клика: и слайдер, и кнопка
     override fun isMouseOver(mouseX: Double, mouseY: Double): Boolean {
         val inSlider =
             mouseX >= x && mouseX < (x + width) &&
             mouseY >= y && mouseY < (y + height)
 
         val resetX = x + width + resetGap
-        val resetY = y + (height - resetBtnSize) / 2
+        val resetY = y + (height - resetBtnHeight) / 2
         val inReset =
-            mouseX >= resetX && mouseX < (resetX + resetBtnSize) &&
-            mouseY >= resetY && mouseY < (resetY + resetBtnSize)
+            mouseX >= resetX && mouseX < (resetX + resetBtnWidth) &&
+            mouseY >= resetY && mouseY < (resetY + resetBtnHeight)
 
         return inSlider || inReset
     }
 
     override fun onClick(mouseX: Double, mouseY: Double) {
         val resetX = x + width + resetGap
-        val resetY = y + (height - resetBtnSize) / 2
+        val resetY = y + (height - resetBtnHeight) / 2
 
-        if (mouseX >= resetX && mouseX <= resetX + resetBtnSize &&
-            mouseY >= resetY && mouseY <= resetY + resetBtnSize
+        if (mouseX >= resetX && mouseX <= resetX + resetBtnWidth &&
+            mouseY >= resetY && mouseY <= resetY + resetBtnHeight
         ) {
             reset()
         } else {
@@ -138,12 +138,10 @@ class CompactSlider(
     }
 
     fun reset() {
-        // ставим дефолт, дергаем onReset и обновляем слайдер
         currentValue = defaultValue
         onReset()
         value = ((currentValue - min) / (max - min)).coerceIn(0f, 1f).toDouble()
         updateMessage()
         applyValue()
     }
-
 }

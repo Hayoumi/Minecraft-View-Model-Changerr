@@ -1,5 +1,6 @@
 package com.viewmodel.gui
 
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.widget.ButtonWidget
 import net.minecraft.text.Text
@@ -13,13 +14,12 @@ class CompactToggle(
     (button as? CompactToggle)?.toggle()
 }, DEFAULT_NARRATION_SUPPLIER) {
 
-    // Мягкая палитра
-    private val TOGGLE_OFF = 0xFF1F2227.toInt()
-    private val TOGGLE_ON = 0xFF0A84FF.toInt()
-    private val HANDLE = 0xFFFFFFFF.toInt()
-    private val TEXT = 0xFFF5F7FA.toInt()
-    private val TRACK_BORDER = 0x40333B45
-    private val radius = 9
+    private val toggleOff = 0xFF171B23.toInt()
+    private val toggleOn = 0xFF34C759.toInt()
+    private val handleColor = 0xFFF6F7F9.toInt()
+    private val textColor = 0xFFF6F7F9.toInt()
+    private val borderColor = 0x19333B45
+    private val radius = 14
 
     private var progress = if (enabled) 1f else 0f
     private val defaultValue = enabled
@@ -37,49 +37,42 @@ class CompactToggle(
     }
 
     override fun renderWidget(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
-        val textRenderer = net.minecraft.client.MinecraftClient.getInstance().textRenderer
-        
-        // Плавная анимация
+        val textRenderer = MinecraftClient.getInstance().textRenderer
+
         val target = if (enabled) 1f else 0f
         progress += (target - progress) * 0.2f
-        
-        // Текст
-        context.drawText(textRenderer, label, x, y + (height - 8) / 2, TEXT, false)
-        
-        // Toggle switch
-        val toggleW = 36
-        val toggleH = 18
+
+        context.drawText(textRenderer, label, x, y + (height - 8) / 2, textColor, false)
+
+        val toggleW = 46
+        val toggleH = 24
         val toggleX = x + width - toggleW
         val toggleY = y + (height - toggleH) / 2
-        
-        // Фон
-        val bgColor = interpolate(TOGGLE_OFF, TOGGLE_ON, progress)
+
+        val bgColor = interpolate(toggleOff, toggleOn, progress)
         UiPrimitives.fillRoundedRect(context, toggleX, toggleY, toggleW, toggleH, radius, bgColor)
-        UiPrimitives.drawRoundedBorder(context, toggleX, toggleY, toggleW, toggleH, radius, TRACK_BORDER)
-        
-        // Ручка
-        val handleSize = 14
+        UiPrimitives.drawRoundedBorder(context, toggleX, toggleY, toggleW, toggleH, radius, borderColor)
+
+        val handleSize = 20
         val handleX = (toggleX + 2 + (toggleW - handleSize - 4) * progress).toInt()
         val handleY = toggleY + (toggleH - handleSize) / 2
-        
-        // Ручка (темная на светлом фоне, светлая на темном)
-        val handleColor = if (enabled) HANDLE else 0xFFFFFFFF.toInt()
-        context.fill(handleX, handleY, handleX + handleSize, handleY + handleSize, handleColor)
+
+        UiPrimitives.fillRoundedRect(context, handleX, handleY, handleSize, handleSize, handleSize / 2, handleColor)
     }
 
     private fun interpolate(c1: Int, c2: Int, p: Float): Int {
         val r1 = (c1 shr 16 and 0xFF)
         val g1 = (c1 shr 8 and 0xFF)
         val b1 = (c1 and 0xFF)
-        
+
         val r2 = (c2 shr 16 and 0xFF)
         val g2 = (c2 shr 8 and 0xFF)
         val b2 = (c2 and 0xFF)
-        
+
         val r = (r1 + (r2 - r1) * p).toInt()
         val g = (g1 + (g2 - g1) * p).toInt()
         val b = (b1 + (b2 - b1) * p).toInt()
-        
+
         return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
     }
 }

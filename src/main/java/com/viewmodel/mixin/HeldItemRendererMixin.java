@@ -82,7 +82,6 @@ public abstract class HeldItemRendererMixin {
 
     /**
      * ОТКЛЮЧАЕМ АНИМАЦИЮ ДОСТАВАНИЯ ПРЕДМЕТА
-     * + добавляем поворот -45° если включен NO SWING или SCALE SWING
      */
     @Inject(method = "applyEquipOffset", at = @At("HEAD"), cancellable = true)
     private void onApplyEquipOffset(MatrixStack matrices, Arm arm, float equipProgress, CallbackInfo ci) {

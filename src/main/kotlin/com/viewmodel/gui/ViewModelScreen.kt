@@ -23,26 +23,25 @@ class ViewModelScreen : Screen(Text.empty()) {
     private val buttons = mutableListOf<CompactButton>()
 
     // Палитра
-    private val PANEL = 0xF0171A1F.toInt()
-    private val CARD = 0xF01D2026.toInt()
-    private val ACCENT = 0xFF0A84FF.toInt()
-    private val TEXT = 0xFFF5F7FA.toInt()
-    private val TEXT_DIM = 0xFF9EA3AA.toInt()
-    private val BORDER = 0xFF2E3239.toInt()
-    private val BORDER_SOFT = 0x40333B45
+    private val PANEL = 0xFF10131A.toInt()
+    private val CARD = 0xFF11141C.toInt()
+    private val ACCENT = 0xFF34C759.toInt()
+    private val TEXT = 0xFFF6F7F9.toInt()
+    private val TEXT_DIM = 0xCCB7BDC9.toInt()
+    private val SHADOW = 0x66000000.toInt()
 
     companion object {
-        const val WIDTH = 352
-        const val ITEM_H = 26
-        const val SPACING = 6
-        const val PADDING = 14
-        const val CONFIG_WIDTH = 204
-        const val PANEL_GAP = 18
-        const val LIST_ITEM_H = 18
-        const val HEADER_SPACING = 36
-        const val RADIUS = 12
-        const val SECTION_LABEL_OFFSET = 12
-        const val SECTION_GAP = 18
+        const val WIDTH = 328
+        const val ITEM_H = 30
+        const val SPACING = 4
+        const val PADDING = 12
+        const val CONFIG_WIDTH = 188
+        const val PANEL_GAP = 16
+        const val LIST_ITEM_H = 20
+        const val HEADER_SPACING = 32
+        const val RADIUS = 18
+        const val SECTION_LABEL_OFFSET = 10
+        const val SECTION_GAP = 14
     }
 
     private lateinit var nameField: ConfigTextFieldWidget
@@ -53,7 +52,7 @@ class ViewModelScreen : Screen(Text.empty()) {
 
     private var contentStartY = 0
     private var panelX = 0
-    private var panelTop = 32
+    private var panelTop = 28
     private var panelHeight = 0
     private var resetBounds = Bounds(0, 0, 0, 0)
 
@@ -76,9 +75,24 @@ class ViewModelScreen : Screen(Text.empty()) {
         currentName = ViewModelConfigManager.currentName
         allConfigs = ViewModelConfigManager.getConfigNames()
 
-        val totalWidth = CONFIG_WIDTH + PANEL_GAP + WIDTH
-        val startX = (width - totalWidth) / 2
-        panelX = startX + CONFIG_WIDTH + PANEL_GAP
+        val minMargin = 16
+        var proposedPanelX = (width - WIDTH) / 2
+        var proposedConfigX = proposedPanelX - CONFIG_WIDTH - PANEL_GAP
+
+        if (proposedConfigX < minMargin) {
+            val delta = minMargin - proposedConfigX
+            proposedPanelX = (proposedPanelX + delta).coerceAtMost(width - WIDTH - minMargin)
+            proposedConfigX = minMargin
+        }
+
+        if (proposedPanelX + WIDTH > width - minMargin) {
+            val delta = proposedPanelX + WIDTH - (width - minMargin)
+            proposedPanelX -= delta
+            proposedConfigX = (proposedPanelX - CONFIG_WIDTH - PANEL_GAP).coerceAtLeast(minMargin)
+        }
+
+        panelX = proposedPanelX
+        val configStartX = proposedConfigX
 
         val titleY = panelTop + 16
         contentStartY = titleY + HEADER_SPACING
@@ -148,9 +162,9 @@ class ViewModelScreen : Screen(Text.empty()) {
 
         val contentBottom = (sliders.map { it.y + it.height } + toggles.map { it.y + it.height })
             .maxOrNull() ?: contentStartY
-        panelHeight = (contentBottom - panelTop) + PADDING + 16
+        panelHeight = (contentBottom - panelTop) + PADDING + 10
 
-        setupConfigControls(startX)
+        setupConfigControls(configStartX)
 
         sliders.forEach { addDrawableChild(it) }
         toggles.forEach { addDrawableChild(it) }
@@ -167,7 +181,7 @@ class ViewModelScreen : Screen(Text.empty()) {
             CompactSlider(
                 x + PADDING,
                 y,
-                WIDTH - PADDING * 2 - 24,
+                WIDTH - PADDING * 2 - CompactSlider.RESET_GUTTER,
                 ITEM_H,
                 Text.literal(label),
                 value,
@@ -206,20 +220,20 @@ class ViewModelScreen : Screen(Text.empty()) {
 
     private fun setupConfigControls(configX: Int) {
         val padding = 12
-        val dropdownHeight = 20
-        val fieldHeight = 18
-        val buttonHeight = 20
-        val verticalGap = 10
+        val dropdownHeight = 26
+        val fieldHeight = 20
+        val buttonHeight = 24
+        val verticalGap = 12
 
-        val configHeight = padding + 16 + dropdownHeight + verticalGap + 12 + fieldHeight + verticalGap + buttonHeight * 2 + 6 + padding
+        val configHeight = padding + 18 + dropdownHeight + verticalGap + 12 + fieldHeight + verticalGap + buttonHeight * 2 + 8 + padding
         val top = panelTop + max(0, (panelHeight - configHeight) / 2)
         configBox = Bounds(configX, top, CONFIG_WIDTH, configHeight)
 
-        val dropdownY = top + padding + 14
+        val dropdownY = top + padding + 18
         dropdownBounds = Bounds(configX + padding, dropdownY, CONFIG_WIDTH - padding * 2, dropdownHeight)
 
-        val nameLabelY = dropdownY + dropdownHeight + verticalGap
-        nameField = ConfigTextFieldWidget(textRenderer, configX + padding, nameLabelY + 12, CONFIG_WIDTH - padding * 2, fieldHeight, Text.empty())
+        val nameFieldY = dropdownY + dropdownHeight + verticalGap + 12
+        nameField = ConfigTextFieldWidget(textRenderer, configX + padding, nameFieldY, CONFIG_WIDTH - padding * 2, fieldHeight, Text.empty())
         nameField.text = currentName
         nameField.setEditableColor(TEXT)
 
@@ -237,7 +251,7 @@ class ViewModelScreen : Screen(Text.empty()) {
         ) { renameConfigProfile() }
         val delete = CompactButton(
             configX + padding,
-            buttonsY + buttonHeight + 4,
+            buttonsY + buttonHeight + 8,
             CONFIG_WIDTH - padding * 2,
             buttonHeight,
             Text.literal("Delete")
@@ -297,7 +311,6 @@ class ViewModelScreen : Screen(Text.empty()) {
     }
 
     private fun renderPanel(context: DrawContext) {
-        val panelBottom = panelTop + panelHeight
         UiPrimitives.fillRoundedRect(context, panelX, panelTop, WIDTH, panelHeight, RADIUS, PANEL)
         UiPrimitives.drawRoundedBorder(context, panelX, panelTop, WIDTH, panelHeight, RADIUS, BORDER)
 
@@ -353,9 +366,9 @@ class ViewModelScreen : Screen(Text.empty()) {
 
     private fun renderDropdown(context: DrawContext, mouseX: Int, mouseY: Int) {
         val width = dropdownBounds.w
-        val preferredX = configBox.x + configBox.w + 12
-        val listX = preferredX.takeIf { it + width < this.width - 12 }
-            ?: (configBox.x - width - 12).coerceAtLeast(12)
+        val leftPreferred = configBox.x - width - 12
+        val listX = leftPreferred.takeIf { it >= 12 }
+            ?: (configBox.x + configBox.w + 12).coerceAtMost(this.width - width - 12)
 
         val totalHeight = if (allConfigs.isNotEmpty()) allConfigs.size * (LIST_ITEM_H + 2) - 2 else 0
         var bgTop = dropdownBounds.y - 6
@@ -386,13 +399,14 @@ class ViewModelScreen : Screen(Text.empty()) {
     private fun drawButtonLike(context: DrawContext, bounds: Bounds, label: String, hovered: Boolean, selected: Boolean) {
         val fillColor = when {
             hovered -> ACCENT
-            selected -> 0xFF222732.toInt()
+            selected -> 0xFF1B1E27.toInt()
             else -> CARD
         }
-        val textColor = if (hovered) 0xFF0B1726.toInt() else TEXT
+        val textColor = if (hovered) 0xFF04111B.toInt() else TEXT
 
-        UiPrimitives.fillRoundedRect(context, bounds.x, bounds.y, bounds.w, bounds.h, RADIUS - 2, fillColor)
-        UiPrimitives.drawRoundedBorder(context, bounds.x, bounds.y, bounds.w, bounds.h, RADIUS - 2, BORDER_SOFT)
+        val innerRadius = (RADIUS - 6).coerceAtLeast(8)
+        UiPrimitives.fillRoundedRect(context, bounds.x, bounds.y, bounds.w, bounds.h, innerRadius, fillColor)
+        UiPrimitives.drawRoundedBorder(context, bounds.x, bounds.y, bounds.w, bounds.h, innerRadius, BORDER_SOFT)
 
         val tx = bounds.x + (bounds.w - textRenderer.getWidth(label)) / 2
         val ty = bounds.y + (bounds.h - 8) / 2
@@ -411,19 +425,20 @@ class ViewModelScreen : Screen(Text.empty()) {
     }
 
     private fun renderResetButton(context: DrawContext, mouseX: Int, mouseY: Int) {
-        val btnW = 124
-        val btnH = 26
-        val btnX = panelX + WIDTH - btnW - PADDING
-        val btnY = panelTop + panelHeight + 14
+        val btnW = WIDTH - PADDING * 2
+        val btnH = 32
+        val btnX = panelX + PADDING
+        val btnY = panelTop + panelHeight + 18
 
         resetBounds = Bounds(btnX, btnY, btnW, btnH)
 
         val hovered = resetBounds.contains(mouseX.toDouble(), mouseY.toDouble())
-        val btnColor = if (hovered) ACCENT else CARD
-        val textColor = if (hovered) 0xFF000000.toInt() else TEXT
+        val btnColor = if (hovered) ACCENT else 0xFF1B1F27.toInt()
+        val textColor = if (hovered) 0xFF03111B.toInt() else TEXT
 
-        UiPrimitives.fillRoundedRect(context, btnX, btnY, btnW, btnH, RADIUS, btnColor)
-        UiPrimitives.drawRoundedBorder(context, btnX, btnY, btnW, btnH, RADIUS, BORDER)
+        val pillRadius = (RADIUS - 4).coerceAtLeast(12)
+        UiPrimitives.fillRoundedRect(context, btnX, btnY, btnW, btnH, pillRadius, btnColor)
+        UiPrimitives.drawRoundedBorder(context, btnX, btnY, btnW, btnH, pillRadius, BORDER)
 
         context.drawText(
             textRenderer,

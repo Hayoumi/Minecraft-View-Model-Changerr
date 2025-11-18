@@ -15,21 +15,22 @@ class CompactButton(
     onPress: PressAction
 ) : ButtonWidget(x, y, width, height, message, onPress, DEFAULT_NARRATION_SUPPLIER) {
 
-    private val base = 0xFF1F2227.toInt()
-    private val hover = 0xFF0A84FF.toInt()
-    private val border = 0x40333B45
-    private val text = 0xFFF5F7FA.toInt()
-    private val selectedFill = 0xFF28303A.toInt()
-    private val radius = 10
+    private val base = 0xFF141821.toInt()
+    private val hover = 0xFF34C759.toInt()
+    private val selectedFill = 0xFF10131B.toInt()
+    private val text = 0xFFF6F7F9.toInt()
+    private val textInverse = 0xFF041007.toInt()
+    private val border = 0x19333B45
+    private val radius = 16
 
     override fun renderWidget(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
         val hovered = isHovered
         val fillColor = when {
-            hovered -> hover
             selected -> selectedFill
+            hovered -> hover
             else -> base
         }
-        val textColor = if (hovered) 0xFF0B1726.toInt() else text
+        val textColor = if (hovered) textInverse else text
 
         UiPrimitives.fillRoundedRect(context, x, y, width, height, radius, fillColor)
         UiPrimitives.drawRoundedBorder(context, x, y, width, height, radius, border)
