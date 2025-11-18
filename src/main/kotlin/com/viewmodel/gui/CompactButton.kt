@@ -15,11 +15,12 @@ class CompactButton(
     onPress: PressAction
 ) : ButtonWidget(x, y, width, height, message, onPress, DEFAULT_NARRATION_SUPPLIER) {
 
-    private val base = 0xFF252525.toInt()
-    private val hover = 0xFFFFFFFF.toInt()
-    private val border = 0xFF3A3A3A.toInt()
-    private val text = 0xFFE0E0E0.toInt()
-    private val selectedFill = 0xFF2F2F2F.toInt()
+    private val base = 0xFF1F2227.toInt()
+    private val hover = 0xFF0A84FF.toInt()
+    private val border = 0x40333B45
+    private val text = 0xFFF5F7FA.toInt()
+    private val selectedFill = 0xFF28303A.toInt()
+    private val radius = 10
 
     override fun renderWidget(context: DrawContext, mouseX: Int, mouseY: Int, delta: Float) {
         val hovered = isHovered
@@ -28,21 +29,14 @@ class CompactButton(
             selected -> selectedFill
             else -> base
         }
-        val textColor = if (hovered) 0xFF000000.toInt() else text
+        val textColor = if (hovered) 0xFF0B1726.toInt() else text
 
-        context.fill(x, y, x + width, y + height, fillColor)
-        drawBorder(context)
+        UiPrimitives.fillRoundedRect(context, x, y, width, height, radius, fillColor)
+        UiPrimitives.drawRoundedBorder(context, x, y, width, height, radius, border)
 
         val renderer = MinecraftClient.getInstance().textRenderer
         val tx = x + (width - renderer.getWidth(message)) / 2
         val ty = y + (height - 8) / 2
         context.drawText(renderer, message, tx, ty, textColor, false)
-    }
-
-    private fun drawBorder(context: DrawContext) {
-        context.fill(x, y, x + width, y + 1, border)
-        context.fill(x, y + height - 1, x + width, y + height, border)
-        context.fill(x, y, x + 1, y + height, border)
-        context.fill(x + width - 1, y, x + width, y + height, border)
     }
 }
